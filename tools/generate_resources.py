@@ -18,7 +18,7 @@ def block(name):
 def condition(test, result):
     return {'type': 'minecraft:condition', 'if_true': test, 'then_run': result}
 
-write('pack.mcmeta', {'pack': {'pack_format': 48, 'description': 'Fantasy Feudalism Biomes — Rootlands'}})
+write('pack.mcmeta', {'pack': {'pack_format': 48, 'description': 'Fantasy Feudalism - Biomes — Rootlands'}})
 write(f'assets/{NS}/lang/en_us.json', {
     f'biome.{NS}.rootlands': 'Rootlands', f'block.{NS}.rootlands_thorn': 'Rootlands Thorns'
 })

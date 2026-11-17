@@ -4,7 +4,7 @@ plugins {
 }
 version = '0.2.0'
 group = 'dev.fantasyfeudalism'
-base { archivesName = 'fantasy-feudalism-biomes' }
+base { archivesName = 'Fantasy Feudalism - Biomes' }
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 neoForge {

@@ -1,4 +1,4 @@
-# Fantasy Feudalism Biomes — Rootlands
+# Fantasy Feudalism - Biomes — Rootlands
 
 The first biome for Fantasy Feudalism: a dark, old woodland with tall, bent trees, jagged ascending limbs, exposed roots, dirt patches and damaging thorn walls, neutral Root Worms and sparse Root Flowers.
 
@@ -20,7 +20,7 @@ The uploaded Lithostitched artifact is retained in `libs/` for repeatable local 
 
 On Windows, use `gradlew.bat`. Set `JAVA_HOME` to a Java 21 JDK if Gradle cannot find one. In the prepared cloud machine, the JDK is `/workspace/toolchains/jdk-21.0.9+10`; its network proxy launcher is `/workspace/gradle-cloud.py` (for example, `python3 /workspace/gradle-cloud.py build`). No proxy settings or credentials are stored in this project.
 
-The distributable is `build/libs/fantasy-feudalism-biomes-0.2.0.jar`. Put it and the supplied Lithostitched JAR into the `mods/` directory of a matching NeoForge installation. Integration-test classes and their arena are excluded from the distributable.
+The distributable is `build/libs/Fantasy Feudalism - Biomes-0.2.0.jar`. Put it and the supplied Lithostitched JAR into the `mods/` directory of a matching NeoForge installation. The JAR in the repository's `libs/` directory is the Lithostitched dependency, not the compiled Fantasy Feudalism mod. Integration-test classes and their arena are excluded from the distributable.
 
 For dedicated development servers use `./gradlew runServer`; review Minecraft's EULA and configure the server before starting. No normal server EULA is accepted by this project automatically.
 
