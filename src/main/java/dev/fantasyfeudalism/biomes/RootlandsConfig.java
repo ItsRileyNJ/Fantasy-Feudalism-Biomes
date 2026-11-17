@@ -38,9 +38,9 @@ public final class RootlandsConfig {
                 .defineInRange("treeDensity", 5, 0, 24);
         ROOT_DENSITY = builder.comment("Exposed root cluster attempts per chunk.")
                 .defineInRange("rootDensity", 8, 0, 64);
-        THORN_DENSITY = builder.comment("Thorn cluster / wall attempts per chunk.")
+        THORN_DENSITY = builder.comment("Thorn-heavy dark oak wood root patch attempts per chunk.")
                 .defineInRange("thornDensity", 10, 0, 64);
-        GIANT_THORN_DENSITY = builder.comment("Large twisting above-ground thorn arch attempts per chunk.").defineInRange("giantThornDensity", 2, 0, 12);
+        GIANT_THORN_DENSITY = builder.comment("Large twisting above-ground wood root arch attempts per chunk, decorated with thorns.").defineInRange("giantThornDensity", 2, 0, 12);
         GRASS_DENSITY = builder.comment("Dark grass plant patch attempts per chunk; this is not a grass-block variant.").defineInRange("darkGrassDensity", 14, 0, 64);
         STRUCTURE_FREQUENCY = builder.comment("Scales all procedural tree, root and thorn attempts; 0 disables them. Dirt surface patches remain.")
                 .defineInRange("structureFrequency", 1.0, 0.0, 3.0);

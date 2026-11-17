@@ -54,7 +54,8 @@ public final class JaggedTree {
         // Broad, gnarled buttresses taper into the trunk instead of ending as a straight pillar.
         for (Direction direction : Direction.Plane.HORIZONTAL) for (int step = 1; step <= 3; step++) {
             BlockPos foot = base.relative(direction, step);
-            for (int y = 0; y <= 3 - step; y++) log(logs, foot.above(y), y == 0 ? direction.getAxis() : Direction.Axis.Y);
+            for (int y = 0; y <= 3 - step; y++) logs.put(foot.above(y), Blocks.DARK_OAK_WOOD.defaultBlockState()
+                    .setValue(RotatedPillarBlock.AXIS, y == 0 ? direction.getAxis() : Direction.Axis.Y));
         }
         int rank = 0;
         for (int y = height / 3; y < height - 3; y += 3) {
@@ -95,6 +96,7 @@ public final class JaggedTree {
             if (!level.ensureCanWrite(pos) || pos.getY() >= level.getMaxBuildHeight() || !replaceable(level.getBlockState(pos))) return false;
         }
         for (var entry : logs.entrySet()) level.setBlock(entry.getKey(), entry.getValue(), 2);
+        RootThorns.decorate(level, logs.keySet(), random, 0.25);
         for (BlockPos pos : leaves.keySet()) {
             if (!level.ensureCanWrite(pos) || logs.containsKey(pos) || !replaceable(level.getBlockState(pos))) continue;
             int distance = 7;

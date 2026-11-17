@@ -6,7 +6,7 @@ Rootlands is an old, dark woodland of tall crooked trees, exposed roots, twistin
 
 - Minecraft **1.21.1**, Java **21**, NeoForge **21.1.262**.
 - Install **Lithostitched 1.8.1 for NeoForge 21.1** on both client and server; the supplied artifact includes Apollib 1.2.0.
-- Install `build/libs/Fantasy Feudalism - Biomes-0.4.0.jar` alongside Lithostitched in the game's `mods/` directory. Remove the older Fantasy Feudalism mod JAR when upgrading.
+- Install `build/libs/Fantasy Feudalism - Biomes-0.5.0.jar` alongside Lithostitched in the game's `mods/` directory. Remove the older Fantasy Feudalism mod JAR when upgrading.
 
 The JAR under this repository's `libs/` directory is the **Lithostitched dependency**, not the Fantasy Feudalism mod. It is used for repeatable local builds and is not embedded in our output. See `THIRD_PARTY.md` and `licenses/`. Regions Unexplored is not required or bundled.
 
@@ -56,17 +56,19 @@ The plant items are also available under Natural Blocks, and the spawn egg remai
 
 The trees have four distinct forms: **Crooked Crown**, **Forked Spire**, **Windswept**, and **Hollow Elder**. They feature thick tapering trunks, connected angular boughs, secondary forks, irregular layered crowns, hanging bare twigs and buttress roots. Height varies roughly from 24 to 40 blocks. Elders have a hollow lower trunk; forked trees split into upper spires; windswept trees lean farther to one side.
 
-A single Rootlands Sapling grows one tree, naturally or with bone meal, including outside Rootlands. There is no two-by-two sapling requirement. Tree space is validated before placement; obstructed growth restores the sapling without leaving a partial tree. Custom leaves can drop Rootlands Saplings; shears or Silk Touch collect the leaves themselves. The wood uses vanilla dark oak materials.
+A single Rootlands Sapling grows one tree, naturally or with bone meal, including outside Rootlands. There is no two-by-two sapling requirement. Tree space is validated before placement; obstructed growth restores the sapling without leaving a partial tree. Custom leaves can drop Rootlands Saplings; shears or Silk Touch collect the leaves themselves. Trunks and branches use dark oak logs; buttress roots and exposed root structures use dark oak wood blocks with bark on every face.
 
 **Dark Grass is a grass plant, not a grass block variant.** It grows in patches above the existing soil and has its own dark texture. The biome also has darker fog, sky and foliage colors, with denser custom canopy detail. These changes do not force night or alter the world's time.
 
-Large thorn structures form intertwined arches roughly 9–16 blocks high and 9–14 blocks across, with irregular lateral loops, forks, bends and smaller spurs. The almost-black bark texture and axis-oriented thorn blocks follow the direction of growth. Smaller thorn clusters remain around their bases. Thorn contact damage and slowing apply to the large structures as well.
+Large root structures form intertwined arches roughly 9–16 blocks high and 9–14 blocks across, with irregular lateral loops, forks, bends and smaller spurs. The arch bodies, smaller ground roots, and tree buttress roots are made from **dark oak wood blocks**, not thorn blocks or exposed-end logs. Separate dark thorn spikes project outward from exposed root faces: **top, bottom, and all four sides**. Smaller thorn patches are now thorn-bearing wooden root clusters instead of freestanding walls of spikes. Contact damage and slowing remain configurable.
+
+When placing a Thorn by hand, click the desired face of a dark oak wood root. The spike points out from that face and requires its root support; it breaks if that supporting root block is removed. The `thorn_supports` block tag defaults to `minecraft:dark_oak_wood`. The old thorn ID and axis property are retained for saved-state compatibility, while a new `facing` property controls attachment and rendering. Existing generated roots/arches are not automatically converted; explore new chunks to see the new generation.
 
 Root Flowers are small, gaunt brown bushes with sparse white/red blooms. They generate in small patches and can damage and slow entities independently by category. They are not berry-producing bushes and do not have berry growth stages.
 
 ## Root Worms
 
-Root Worms are neutral until attacked, retaliate against an attacker, and prefer root-rich ground. Their segmented model slithers while moving and nibbles when feeding. **Feeding is cosmetic and never consumes roots or structure blocks**, regardless of `mobGriefing`.
+Root Worms are neutral until attacked, retaliate against an attacker, and prefer root-rich ground. Their long nine-segment model slithers while moving and gently nibbles when feeding. The face is deliberately simple and friendly: large dark eyes with small highlights, subtle cheeks, and a tiny smile, without a heavy brow, teeth or open maw. The body has raised bark rings, moss flecks, small root-like nubs and subtle idle movement; the eyes occasionally blink. **Feeding is cosmetic and never consumes roots or structure blocks**, regardless of `mobGriefing`.
 
 They are weak to fire/lava, flee nearby heat, and panic while burning. Their natural spawn weight is **30** (previously 10), with groups of **2–4** (previously 1–3). Root-rich ground always passes their habitat check; ordinary suitable Rootlands soil now passes **50%** of checks rather than 20%. Vanilla creature caps and other spawn rules still apply, so those figures are not a guaranteed worms-per-minute rate.
 
@@ -84,8 +86,8 @@ The first launch creates `config/fantasy_feudalism_biomes-common.toml` under the
 | `rootlands.shoreWidth` | `64` | Shore transition width in blocks, including blending into adjacent biomes. |
 | `rootlands.treeDensity` | `5` | Tree attempts per chunk. |
 | `rootlands.rootDensity` | `8` | Standalone root-cluster attempts per chunk; trees also have attached roots. |
-| `rootlands.thornDensity` | `10` | Small thorn cluster attempts per chunk. |
-| `rootlands.giantThornDensity` | `2` | Large twisting arch attempts per chunk. |
+| `rootlands.thornDensity` | `10` | Thorn-heavy wooden root patch attempts per chunk. |
+| `rootlands.giantThornDensity` | `2` | Large twisting wood root arch attempts per chunk, decorated with attached thorns. |
 | `rootlands.darkGrassDensity` | `14` | Dark grass plant patch attempts per chunk. |
 | `rootlands.structureFrequency` | `1.0` | Scales tree/root/thorn/grass attempts; zero skips them, but not soil patches, flowers or shore grading. |
 | `rootlands.structureVariants` | `true` | Vary tree forms, heights, roots and thorn layouts. False uses base shapes. |
@@ -117,11 +119,13 @@ All Java code is under `src/main/java/dev/fantasyfeudalism/biomes/`:
 - `worldgen/RootlandsIntegration.java` and `DarkForestInterior.java`: regional biome selection and preserved dark-oak rim.
 - `worldgen/RootlandsShoreFeature.java` and `ShorelineProfile.java`: coast grading and chunk-consistent influence fields.
 - `worldgen/JaggedTree.java` and `RootlandsTreeFeature.java`: tree variants and sapling growth.
-- `worldgen/GiantThorns.java` and `RootlandsScatterFeature.java`: arches, root clusters, grass and flower placement.
+- `worldgen/GiantThorns.java`, `RootThorns.java` and `RootlandsScatterFeature.java`: wood arches and root clusters, six-face thorn attachments, grass and flower placement.
 - `block/`: contact behavior and grass plant definition; `entity/`: worm behavior; `client/`: worm model/animation and leaf colors.
 
 Resources are under `src/main/resources/data/fantasy_feudalism_biomes/` and `src/main/resources/assets/fantasy_feudalism_biomes/`. Registry IDs are stable. `tools/generate_resources.py` deterministically writes the worldgen/model/loot/tag resources and original pixel textures. Edit that script and regenerate rather than overwriting its generated files by hand. `tools/generate_test_arena.py` generates the development-only test arena.
 
-The integration suite covers biome selection and dark-forest adjacency, raw terrain density/surface parity, intentional shore grading, real noise-generated coastal columns, narrow rivers, chunk-border continuity, protected structures and supported shore caps, tree variants, sapling growth/failure, renewable leaves, the dark grass plant, giant thorn arches, root/flower/thorn generation, creative-tab contents, spawn settings, worm behavior and contact configuration. Test classes and the arena are excluded from the distributable JAR. Client rendering and a visual playthrough remain separate checks; broad compatibility with every other worldgen mod is not established.
+The integration suite covers biome selection and dark-forest adjacency, raw terrain density/surface parity, intentional shore grading, real noise-generated coastal columns, narrow rivers, chunk-border continuity, protected structures and supported shore caps, tree variants, sapling growth/failure, renewable leaves, the dark grass plant, giant thorn arches, root/flower/thorn generation, creative-tab contents, spawn settings, worm behavior and contact configuration, hand placement of thorns, all six attachment directions, and loss of root support. Test classes and the arena are excluded from the distributable JAR. Client rendering and a visual playthrough remain separate checks; broad compatibility with every other worldgen mod is not established.
 
 Build scaffolding derives from NeoForgeMDKs/MDK-1.21.1-ModDevGradle at `e0000cb81c6ca4bb218046cfd8ade771a42e9c32`; its license is retained in `TEMPLATE_LICENSE.txt`. The mod contains no Regions Unexplored classes, textures or structures.
+
+Current validation: the Java 21 / NeoForge 21.1.262 build and all **37 required GameTests** pass with the supplied Lithostitched/Apollib dependencies. The new worm face/body is compiled and its texture references are checked; an in-client visual review remains pending.

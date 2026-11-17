@@ -120,12 +120,12 @@ public final class ForestVegetationGameTests {
         int high = 0, horizontal = 0, total = 0;
         for (int x = 0; x < 32; x++) for (int z = 0; z < 32; z++) for (int y = 2; y < 24; y++) {
             var state = helper.getBlockState(new BlockPos(x, y, z));
-            if (!state.is(FantasyBiomes.THORN.get())) continue;
+            if (!state.is(Blocks.DARK_OAK_WOOD)) continue;
             total++;
             if (y > 10) high++;
-            if (state.getValue(dev.fantasyfeudalism.biomes.block.ThornBlock.AXIS) != net.minecraft.core.Direction.Axis.Y) horizontal++;
+            if (state.getValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS) != net.minecraft.core.Direction.Axis.Y) horizontal++;
         }
-        helper.assertTrue(total > 70 && high > 20 && horizontal > 20, "Giant thorns need large elevated curves and sideways bends");
+        helper.assertTrue(total > 70 && high > 20 && horizontal > 20, "Thorned wood roots need large elevated curves and sideways bends");
         helper.assertBlockPresent(Blocks.AIR, new BlockPos(14, 5, 16));
         helper.succeed();
     }

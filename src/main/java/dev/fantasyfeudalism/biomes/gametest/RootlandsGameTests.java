@@ -60,10 +60,10 @@ public final class RootlandsGameTests {
         var level = helper.getLevel();
         helper.assertTrue(RootlandsScatterFeature.roots(level, helper.absolutePos(new BlockPos(8, 2, 8)), RandomSource.create(11), false), "Roots should generate");
         helper.assertTrue(RootlandsScatterFeature.thorns(level, helper.absolutePos(new BlockPos(22, 2, 22)), RandomSource.create(13), false), "Thorns should generate");
-        helper.assertTrue(count(helper, Blocks.DARK_OAK_LOG) >= 12, "Roots need multiple arms");
+        helper.assertTrue(count(helper, Blocks.DARK_OAK_WOOD) >= 12, "Roots need multiple arms");
         helper.assertTrue(count(helper, Blocks.ROOTED_DIRT) >= 12, "Roots should change supporting soil");
-        helper.assertTrue(count(helper, FantasyBiomes.THORN.get()) == 8, "Base thorn wall should be four columns of height two");
-        helper.assertTrue(count(helper, Blocks.COARSE_DIRT) == 4, "Thorns should roughen supporting soil");
+        helper.assertTrue(count(helper, FantasyBiomes.THORN.get()) > 0, "Root patches should carry attached thorns");
+        helper.assertTrue(count(helper, Blocks.ROOTED_DIRT) >= 25, "Thorned roots should retain supporting rooted soil");
         helper.succeed();
     }
 
@@ -73,6 +73,7 @@ public final class RootlandsGameTests {
         var amount = RootlandsConfig.THORN_DAMAGE.get();
         try {
             BlockPos relative = new BlockPos(8, 2, 8);
+            helper.setBlock(relative.below(), Blocks.DARK_OAK_WOOD);
             helper.setBlock(relative, FantasyBiomes.THORN.get());
             var victim = helper.spawn(EntityType.PIG, relative);
             victim.setNoAi(true);
@@ -102,7 +103,7 @@ public final class RootlandsGameTests {
                 helper.assertTrue(!feature.place(new FeaturePlaceContext<>(Optional.empty(), level, level.getChunkSource().getGenerator(), RandomSource.create(17),
                         helper.absolutePos(new BlockPos(16, 2, 16)), NoneFeatureConfiguration.INSTANCE)), "Zero frequency must skip generation");
             }
-            helper.assertTrue(count(helper, Blocks.DARK_OAK_LOG) == 0 && count(helper, FantasyBiomes.THORN.get()) == 0, "Disabled generation must leave terrain alone");
+            helper.assertTrue(count(helper, Blocks.DARK_OAK_LOG) == 0 && count(helper, Blocks.DARK_OAK_WOOD) == 0 && count(helper, FantasyBiomes.THORN.get()) == 0, "Disabled generation must leave terrain alone");
         } finally {
             RootlandsConfig.STRUCTURE_FREQUENCY.set(previous);
         }

@@ -246,3 +246,50 @@ def sapling_pixel(x, y):
 save_pixels('dark_grass', 16, 16, grass_pixel)
 save_pixels('rootlands_sapling', 16, 16, sapling_pixel)
 save_pixels('thorn_bark', 16, 16, lambda x, y: (19 + (x * 3 + y * 7) % 10, 15 + (x + y) % 8, 19 + (x * 2 + y) % 9, 255))
+
+# Root thorns attach to bark-covered wood on any of its six faces, including the underside of arches.
+write(f'data/{NS}/tags/block/thorn_supports.json', {'replace': False, 'values': ['minecraft:dark_oak_wood']})
+food_path = ROOT / f'data/{NS}/tags/block/root_worm_food.json'
+food = json.loads(food_path.read_text())
+food['values'].append('minecraft:dark_oak_wood')
+write(f'data/{NS}/tags/block/root_worm_food.json', food)
+
+thorn_faces = {side: {'texture': '#bark'} for side in ['north', 'south', 'east', 'west', 'up', 'down']}
+lean = {'origin': [8, 3, 8], 'axis': 'z', 'angle': 22.5}
+write(f'assets/{NS}/models/block/rootlands_thorn.json', {'parent': 'minecraft:block/block',
+    'textures': {'bark': f'{NS}:block/thorn_bark', 'particle': f'{NS}:block/thorn_bark'},
+    'elements': [
+        {'from': [5, 0, 5], 'to': [11, 3, 11], 'faces': thorn_faces},
+        {'from': [6, 2, 6], 'to': [10, 7, 10], 'rotation': lean, 'faces': thorn_faces},
+        {'from': [7, 6, 7], 'to': [9, 11, 9], 'rotation': lean, 'faces': thorn_faces},
+        {'from': [7.5, 10, 7.5], 'to': [8.5, 14, 8.5], 'rotation': lean, 'faces': thorn_faces}
+    ]})
+# Axis is retained in saved states for compatibility; facing is the model/attachment direction.
+write(f'assets/{NS}/blockstates/rootlands_thorn.json', {'variants': {
+    'facing=up': {'model': f'{NS}:block/rootlands_thorn'},
+    'facing=down': {'model': f'{NS}:block/rootlands_thorn', 'x': 180},
+    'facing=north': {'model': f'{NS}:block/rootlands_thorn', 'x': 90},
+    'facing=south': {'model': f'{NS}:block/rootlands_thorn', 'x': 90, 'y': 180},
+    'facing=east': {'model': f'{NS}:block/rootlands_thorn', 'x': 90, 'y': 90},
+    'facing=west': {'model': f'{NS}:block/rootlands_thorn', 'x': 90, 'y': 270}
+}})
+
+# A simpler friendly face, with detail concentrated in the worm's bark, moss and segment rings.
+# Atlas areas match RootWormModel: dark eyes, ivory highlights, small mouth, warm cheeks and muted moss.
+def worm_pixel(x, y):
+    grain = ((x * 13 + y * 7) % 17) - 8
+    shade = grain - (10 if x % 7 in [0, 1] else 0)
+    color = (94 + shade, 69 + shade, 43 + shade, 255)
+    if x < 40 and y >= 24:
+        color = (115 + grain, 87 + grain, 54 + grain, 255) if y % 3 else (68, 47, 30, 255)
+    if 48 <= x < 56 and y < 7: color = (25, 23, 18, 255)
+    if x >= 56 and y < 7: color = (244, 237, 215, 255)
+    if 48 <= x < 56 and 8 <= y < 14: color = (46, 29, 19, 255)
+    if x >= 56 and 8 <= y < 14: color = (147, 104, 77, 255)
+    if x >= 48 and 16 <= y < 24: color = (48 + grain // 2, 68 + grain // 2, 35 + grain // 2, 255)
+    return color
+
+# The common PNG writer's block directory is used for plants; the worm has a separate entity atlas.
+rows = b''.join(b'\0' + b''.join(bytes(worm_pixel(x, y)) for x in range(64)) for y in range(32))
+png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 64, 32, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b'')
+(ROOT / f'assets/{NS}/textures/entity/root_worm.png').write_bytes(png)

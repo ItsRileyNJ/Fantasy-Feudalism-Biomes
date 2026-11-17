@@ -1,7 +1,6 @@
 package dev.fantasyfeudalism.biomes.worldgen;
 
-import dev.fantasyfeudalism.biomes.FantasyBiomes;
-import dev.fantasyfeudalism.biomes.block.ThornBlock;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
@@ -11,7 +10,7 @@ import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Intertwined above-ground arches with irregular bends, lateral loops and thorny upward forks. */
+/** Intertwined dark oak wood root arches, decorated with outward-facing spikes on their exposed faces. */
 public final class GiantThorns {
     public static boolean place(WorldGenLevel level, BlockPos base, RandomSource random, boolean variants) {
         Direction along = variants ? Direction.from2DDataValue(random.nextInt(4)) : Direction.EAST;
@@ -23,7 +22,7 @@ public final class GiantThorns {
         Map<BlockPos, BlockState> plan = new LinkedHashMap<>();
         for (int vine = 0; vine < 2; vine++) {
             BlockPos previous = base.relative(side, vine);
-            plan.put(previous, FantasyBiomes.THORN.get().defaultBlockState());
+            plan.put(previous, Blocks.DARK_OAK_WOOD.defaultBlockState());
             for (int step = 0; step <= 28; step++) {
                 double t = step / 28.0;
                 int forward = (int) Math.round(t * span);
@@ -46,6 +45,7 @@ public final class GiantThorns {
         for (var entry : plan.entrySet()) level.setBlock(entry.getKey(), entry.getValue(), 2);
         level.setBlock(base.below(), Blocks.ROOTED_DIRT.defaultBlockState(), 2);
         level.setBlock(end.below(), Blocks.ROOTED_DIRT.defaultBlockState(), 2);
+        RootThorns.decorate(level, plan.keySet(), random, 0.35);
         return true;
     }
 
@@ -56,7 +56,7 @@ public final class GiantThorns {
             if (cursor.getX() != to.getX()) { cursor = cursor.offset(Integer.signum(to.getX() - cursor.getX()), 0, 0); axis = Direction.Axis.X; }
             else if (cursor.getZ() != to.getZ()) { cursor = cursor.offset(0, 0, Integer.signum(to.getZ() - cursor.getZ())); axis = Direction.Axis.Z; }
             else { cursor = cursor.offset(0, Integer.signum(to.getY() - cursor.getY()), 0); axis = Direction.Axis.Y; }
-            plan.put(cursor, FantasyBiomes.THORN.get().defaultBlockState().setValue(ThornBlock.AXIS, axis));
+            plan.put(cursor, Blocks.DARK_OAK_WOOD.defaultBlockState().setValue(RotatedPillarBlock.AXIS, axis));
         }
     }
     private GiantThorns() {}

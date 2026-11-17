@@ -1,6 +1,7 @@
 package dev.fantasyfeudalism.biomes.worldgen;
 
 import com.mojang.serialization.Codec;
+import java.util.LinkedHashSet;
 import dev.fantasyfeudalism.biomes.FantasyBiomes;
 import dev.fantasyfeudalism.biomes.RootlandsConfig;
 import net.minecraft.core.BlockPos;
@@ -96,7 +97,18 @@ public final class RootlandsScatterFeature extends Feature<NoneFeatureConfigurat
     }
 
     public static boolean roots(WorldGenLevel level, BlockPos center, RandomSource random, boolean variants) {
+        return rootCluster(level, center, random, variants, 0.3);
+    }
+
+    private static boolean rootCluster(WorldGenLevel level, BlockPos center, RandomSource random, boolean variants, double thornChance) {
         boolean placed = false;
+        var rootBlocks = new LinkedHashSet<BlockPos>();
+        if (JaggedTree.replaceable(level.getBlockState(center))) {
+            level.setBlock(center, Blocks.DARK_OAK_WOOD.defaultBlockState(), 2);
+            level.setBlock(center.below(), Blocks.ROOTED_DIRT.defaultBlockState(), 2);
+            rootBlocks.add(center);
+            placed = true;
+        }
         int arms = variants ? 3 + random.nextInt(3) : 4;
         for (int arm = 0; arm < arms; arm++) {
             Direction dir = Direction.from2DDataValue(arm % 4);
@@ -109,38 +121,25 @@ public final class RootlandsScatterFeature extends Feature<NoneFeatureConfigurat
                 if (floor == null || Math.abs(floor.getY() - cursor.getY()) > 2) break;
                 cursor = floor;
                 if (!JaggedTree.replaceable(level.getBlockState(cursor))) break;
-                BlockState wood = (variants && random.nextInt(5) == 0 ? Blocks.STRIPPED_DARK_OAK_LOG : Blocks.DARK_OAK_LOG)
-                        .defaultBlockState().setValue(RotatedPillarBlock.AXIS, dir.getAxis());
+                BlockState wood = Blocks.DARK_OAK_WOOD.defaultBlockState().setValue(RotatedPillarBlock.AXIS, dir.getAxis());
                 level.setBlock(cursor, wood, 2);
+                rootBlocks.add(cursor);
                 level.setBlock(cursor.below(), Blocks.ROOTED_DIRT.defaultBlockState(), 2);
                 placed = true;
                 // Short rising knuckles give some roots a rough, jagged profile.
                 if (step == 1 && JaggedTree.replaceable(level.getBlockState(cursor.above()))) {
-                    level.setBlock(cursor.above(), Blocks.DARK_OAK_LOG.defaultBlockState(), 2);
+                    level.setBlock(cursor.above(), Blocks.DARK_OAK_WOOD.defaultBlockState(), 2);
+                    rootBlocks.add(cursor.above());
                 }
             }
         }
+        RootThorns.decorate(level, rootBlocks, random, thornChance);
         return placed;
     }
 
     public static boolean thorns(WorldGenLevel level, BlockPos center, RandomSource random, boolean variants) {
-        boolean placed = false;
-        Direction dir = variants ? Direction.from2DDataValue(random.nextInt(4)) : Direction.EAST;
-        int length = variants ? 2 + random.nextInt(5) : 4;
-        for (int step = 0; step < length; step++) {
-            BlockPos column = center.relative(dir, step);
-            BlockPos floor = ground(level, column.getX(), column.getZ());
-            if (floor == null || Math.abs(floor.getY() - center.getY()) > 2) continue;
-            int height = variants ? 1 + random.nextInt(3) : 2;
-            for (int y = 0; y < height; y++) {
-                BlockPos pos = floor.above(y);
-                if (!JaggedTree.replaceable(level.getBlockState(pos))) break;
-                level.setBlock(pos, FantasyBiomes.THORN.get().defaultBlockState(), 2);
-                placed = true;
-            }
-            level.setBlock(floor.below(), Blocks.COARSE_DIRT.defaultBlockState(), 2);
-        }
-        return placed;
+        // Dense thorn patches are thorn-bearing wooden roots, never free-standing spike walls.
+        return rootCluster(level, center, random, variants, 0.65);
     }
 
     public static boolean grass(WorldGenLevel level, BlockPos center, RandomSource random) {

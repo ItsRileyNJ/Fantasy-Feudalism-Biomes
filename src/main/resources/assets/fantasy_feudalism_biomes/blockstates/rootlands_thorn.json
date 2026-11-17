@@ -1,16 +1,30 @@
 {
   "variants": {
-    "axis=y": {
+    "facing=up": {
       "model": "fantasy_feudalism_biomes:block/rootlands_thorn"
     },
-    "axis=x": {
+    "facing=down": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
+      "x": 180
+    },
+    "facing=north": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
+      "x": 90,
+      "y": 180
+    },
+    "facing=east": {
       "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
       "x": 90,
       "y": 90
     },
-    "axis=z": {
+    "facing=west": {
       "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
-      "x": 90
+      "x": 90,
+      "y": 270
     }
   }
 }
