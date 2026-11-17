@@ -45,6 +45,7 @@ public final class RootlandsScatterFeature extends Feature<NoneFeatureConfigurat
         for (int i = 0; i < attempts; i++) {
             BlockPos pos = ground(level, x0 + random.nextInt(16), z0 + random.nextInt(16));
             if (pos == null || !level.getBiome(pos).is(FantasyBiomes.ROOTLANDS)) continue;
+            if (random.nextDouble() >= edgeDensity(level, pos)) continue;
             if (kind == Kind.TREE) {
                 if (JaggedTree.place(level, pos, random, variants)) {
                     roots(level, pos, random, variants);
@@ -61,8 +62,21 @@ public final class RootlandsScatterFeature extends Feature<NoneFeatureConfigurat
         return placed;
     }
 
+    /** Eight neighboring surface-biome samples fade dense roots/thorns/trees toward a woodland edge. */
+    public static double edgeDensity(WorldGenLevel level, BlockPos pos) {
+        int width = RootlandsConfig.EDGE_BLEND.get();
+        if (width == 0) return 1.0;
+        int same = 0;
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+            if (dx == 0 && dz == 0) continue;
+            if (level.getBiome(pos.offset(dx * width, 0, dz * width)).is(FantasyBiomes.ROOTLANDS)) same++;
+        }
+        return 0.2 + 0.1 * same;
+    }
+
     /** Ignore canopy and tall plants while locating dirt; never replace arbitrary structures or rock. */
     public static BlockPos ground(WorldGenLevel level, int x, int z) {
+        if (!level.ensureCanWrite(new BlockPos(x, level.getMinBuildHeight() + 1, z))) return null;
         int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
         for (int y = top; y >= Math.max(level.getMinBuildHeight() + 1, top - 40); y--) {
             BlockPos soil = new BlockPos(x, y - 1, z);

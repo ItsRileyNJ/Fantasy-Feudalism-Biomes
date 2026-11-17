@@ -20,7 +20,7 @@ The uploaded Lithostitched artifact is retained in `libs/` for repeatable local 
 
 On Windows, use `gradlew.bat`. Set `JAVA_HOME` to a Java 21 JDK if Gradle cannot find one. In the prepared cloud machine, the JDK is `/workspace/toolchains/jdk-21.0.9+10`; its network proxy launcher is `/workspace/gradle-cloud.py` (for example, `python3 /workspace/gradle-cloud.py build`). No proxy settings or credentials are stored in this project.
 
-The distributable is `build/libs/Fantasy Feudalism - Biomes-0.2.0.jar`. Put it and the supplied Lithostitched JAR into the `mods/` directory of a matching NeoForge installation. The JAR in the repository's `libs/` directory is the Lithostitched dependency, not the compiled Fantasy Feudalism mod. Integration-test classes and their arena are excluded from the distributable.
+The distributable is `build/libs/Fantasy Feudalism - Biomes-0.3.0.jar`. Put it and the supplied Lithostitched JAR into the `mods/` directory of a matching NeoForge installation. The JAR in the repository's `libs/` directory is the Lithostitched dependency, not the compiled Fantasy Feudalism mod. Integration-test classes and their arena are excluded from the distributable.
 
 For dedicated development servers use `./gradlew runServer`; review Minecraft's EULA and configure the server before starting. No normal server EULA is accepted by this project automatically.
 
@@ -32,7 +32,7 @@ Create a **new default Overworld** and use:
 /locate biome fantasy_feudalism_biomes:rootlands
 ```
 
-Use the coordinates returned by the command to teleport there. Cheats/operator permissions are required. Rootlands takes weighted portions of vanilla dark-forest territory, retaining vanilla terrain shape and surrounding biomes. The default relative weight is 35 against vanilla's 100, **not 35% of the world**. Existing explored chunks are not regenerated. Superflat does not provide the normal climate-based biome distribution.
+Use the coordinates returned by the command to teleport there. Cheats/operator permissions are required. Rootlands selects broad, smoothly contoured regions across eligible dark forest, forest, birch forest and old-growth birch forest territory, retaining vanilla terrain shape. `biomeSize` controls the spatial scale independently of `biomeWeight`, which adjusts coverage. The default coverage setting of 35 is **not 35% of the world**. Existing explored chunks are not regenerated. Superflat does not provide the normal climate-based biome distribution.
 
 ## Appearance and generation
 
@@ -54,7 +54,9 @@ The first launch creates `config/fantasy_feudalism_biomes-common.toml` under the
 | Setting under `[rootlands]` | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `true` | Allow Rootlands to be selected during generation. |
-| `biomeWeight` | `35` | Relative placement weight; 0 disables selection. |
+| `biomeWeight` | `35` | Relative coverage of eligible forest territory; higher values cover more woodland, 0 disables selection. |
+| `biomeSize` | `2048` | Horizontal region scale in blocks; rivers and climate boundaries can limit actual biome dimensions. |
+| `edgeBlendWidth` | `24` | Width in blocks over which custom decoration thins near other biomes; 0 disables tapering. |
 | `treeDensity` | `5` | Tree placement attempts per biome chunk. |
 | `rootDensity` | `8` | Root-cluster placement attempts per chunk. |
 | `thornDensity` | `10` | Thorn cluster/wall attempts per chunk. |
@@ -84,9 +86,9 @@ Paths below are relative to the repository root:
 
 ## Validation
 
-`runGameTestServer` runs fourteen integration tests inside Minecraft: tall tree geometry/foliage, atomic rejection of obstructed trunks, root/thorn placement and soil changes, configured thorn damage, zero-frequency generation, real Lithostitched biome selection plus registry/surface-rule decoding, and actual placed-feature decoration restricted to Rootlands. The additional tests cover worm neutrality/retaliation, fire/lava weakness, escape path planning and the heat toggle, root preference without destruction, flower contact categories/damage, actual movement reduction, and patch size/frequency. They are dev-only tests and are not a replacement for an in-client visual review or broad multi-seed performance testing.
+`runGameTestServer` runs eighteen integration tests inside Minecraft: tall tree geometry/foliage, atomic rejection of obstructed trunks, root/thorn placement and soil changes, configured thorn damage, zero-frequency generation, real Lithostitched biome selection plus registry/surface-rule decoding, and actual placed-feature decoration restricted to Rootlands. The additional tests cover worm neutrality/retaliation, fire/lava weakness, escape path planning and the heat toggle, root preference without destruction, flower contact categories/damage, actual movement reduction, and patch size/frequency. Terrain regression tests additionally fill real noise chunks at Rootlands boundaries for three seeds, compare their block volumes to unmodified vanilla generation, verify that surface rules preserve column heights, verify larger selection scales and decoration tapering, and check that tree/root/thorn decoration preserves a sloped stone foundation. They are dev-only tests and are not a replacement for an in-client visual review or broad multi-seed performance testing.
 
-Current validation: the Java 21 / NeoForge 21.1.262 build passed and all **14 required GameTests passed** with the supplied Lithostitched/Apollib runtime. Client rendering and a visual playthrough have not yet been checked.
+Current validation: the Java 21 / NeoForge 21.1.262 build passed and all **18 required GameTests passed** with the supplied Lithostitched/Apollib runtime. Client rendering and a visual playthrough have not yet been checked.
 
 Build scaffolding is based on NeoForgeMDKs/MDK-1.21.1-ModDevGradle at commit `e0000cb81c6ca4bb218046cfd8ade771a42e9c32`; its license is retained in `TEMPLATE_LICENSE.txt`.
 
@@ -139,3 +141,12 @@ Settings under `[rootFlower]`:
 Disabled categories receive neither effect. Vanilla damage cooldowns, creative/spectator protections and damage immunity still apply. Patch sizes are placement targets; obstructions, unsuitable ground and biome boundaries can reduce the actual count. Flower frequency is independent of Rootlands' tree/root/thorn `structureFrequency`.
 
 Exact resource IDs: `worldgen/configured_feature/root_flowers.json`, `worldgen/placed_feature/root_flowers.json` and `loot_table/blocks/root_flower.json` under `data/fantasy_feudalism_biomes/`. The model is `assets/fantasy_feudalism_biomes/models/block/root_flower.json`. Change `tools/generate_resources.py` and regenerate to modify the patch resource data, original flower geometry or original worm texture.
+
+
+## 0.3.0: broad woodlands and longer Root Worm
+
+Rootlands now uses its own low-frequency continuous noise mask, rather than choosing small parts of only dark-forest regions through a cellular region mask. It can span neighboring forest types. `biomeSize` defaults to 2048 and can range from 256 to 8192; this is a horizontal noise scale, not a guaranteed minimum width. `biomeWeight` still adjusts coverage independently. The selection mask is used only to choose biome IDs and is **not connected to Minecraft's terrain density/noise router**. Dense custom decoration tapers near other biomes rather than ending at full density along the edge. Feature writes are checked against the generation region.
+
+The Root Worm keeps its bark-brown, low segmented design but now has nine tapering segments instead of five, making its model roughly 1.8 times as long. Its face has a heavier bark brow and cheek plates, narrow amber eyes, a dark mouth, small ivory teeth and an animated lower jaw. Client visuals still require an in-game review.
+
+Changing biome placement affects newly generated chunks. Existing terrain is not repaired or regenerated. For a clean comparison, test a separate new world without deleting your existing saves. The reported straight-sided holes/cliffs have **not been reproduced** by the current density/surface and decoration regression checks; these checks do not establish compatibility with every other worldgen mod or cover the entire carving/structure pipeline. A seed, coordinates, complete worldgen mod list and relevant game log are needed to investigate a specific affected location.

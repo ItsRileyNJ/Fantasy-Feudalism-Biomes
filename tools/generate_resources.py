@@ -147,6 +147,10 @@ for y in range(32):
             color = (185, 146, 77, 255) if x % 4 else (38, 22, 13, 255)
         if x >= 48 and 8 <= y < 14:
             color = (48, 27, 21, 255) if y < 11 else (128, 91, 51, 255)
+        if x >= 40 and 16 <= y < 23:
+            color = (23, 13, 10, 255) if (x + y) % 4 else (35, 21, 15, 255)
+        if x >= 48 and y >= 24:
+            color = (206, 186, 140, 255) if y % 3 else (167, 145, 100, 255)
         row.extend(color)
     pixels.append(b'\0' + bytes(row))
 
@@ -157,3 +161,6 @@ png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 64, 32, 8, 6
 texture = ROOT / f'assets/{NS}/textures/entity/root_worm.png'
 texture.parent.mkdir(parents=True, exist_ok=True)
 texture.write_bytes(png)
+
+# Low-frequency, continuous biome-selection mask. Never connected to the terrain noise router.
+data('worldgen/noise/rootlands_area', {'firstOctave': -10, 'amplitudes': [1.0, 0.35]})

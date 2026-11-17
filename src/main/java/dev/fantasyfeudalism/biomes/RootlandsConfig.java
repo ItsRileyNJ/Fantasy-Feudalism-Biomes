@@ -8,7 +8,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public final class RootlandsConfig {
     public static final ModConfigSpec SPEC;
     public static final ModConfigSpec.BooleanValue ENABLED;
-    public static final ModConfigSpec.IntValue BIOME_WEIGHT, TREE_DENSITY, ROOT_DENSITY, THORN_DENSITY;
+    public static final ModConfigSpec.IntValue BIOME_WEIGHT, BIOME_SIZE, EDGE_BLEND, TREE_DENSITY, ROOT_DENSITY, THORN_DENSITY;
     public static final ModConfigSpec.DoubleValue STRUCTURE_FREQUENCY, THORN_DAMAGE;
     public static final ModConfigSpec.BooleanValue VARIANTS, THORNS_HURT, THORNS_SLOW;
     public static final ModConfigSpec.DoubleValue FLOWER_FREQUENCY, FLOWER_DAMAGE, FLOWER_SLOW;
@@ -22,8 +22,12 @@ public final class RootlandsConfig {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
         builder.push("rootlands");
         ENABLED = builder.comment("Select Rootlands during new world generation.").define("enabled", true);
-        BIOME_WEIGHT = builder.comment("Relative region weight against dark forest (vanilla weight: 100). Not a world percentage.")
+        BIOME_WEIGHT = builder.comment("Relative coverage of eligible temperate forests. Higher values cover more woodland; 0 disables placement. Not a world percentage.")
                 .defineInRange("biomeWeight", 35, 0, 1000);
+        BIOME_SIZE = builder.comment("Horizontal scale of broad Rootlands areas in blocks; climate and rivers can limit actual biome dimensions.")
+                .defineInRange("biomeSize", 2048, 256, 8192);
+        EDGE_BLEND = builder.comment("Distance in blocks over which custom decoration tapers near other biomes; 0 disables tapering.")
+                .defineInRange("edgeBlendWidth", 24, 0, 96);
         TREE_DENSITY = builder.comment("Jagged tree attempts per Rootlands chunk, before frequency scaling.")
                 .defineInRange("treeDensity", 5, 0, 24);
         ROOT_DENSITY = builder.comment("Exposed root cluster attempts per chunk.")

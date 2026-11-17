@@ -53,11 +53,11 @@ public final class JaggedTree {
         BlockPos top = base.above(height - 3).relative(lean, (height - 3) / 6);
         crown(leaves, top, random, variants, 3);
         for (BlockPos pos : logs.keySet()) {
-            if (pos.getY() >= level.getMaxBuildHeight() || !replaceable(level.getBlockState(pos))) return false;
+            if (!level.ensureCanWrite(pos) || pos.getY() >= level.getMaxBuildHeight() || !replaceable(level.getBlockState(pos))) return false;
         }
         for (var entry : logs.entrySet()) level.setBlock(entry.getKey(), entry.getValue(), 2);
         for (BlockPos pos : leaves.keySet()) {
-            if (logs.containsKey(pos) || !replaceable(level.getBlockState(pos))) continue;
+            if (!level.ensureCanWrite(pos) || logs.containsKey(pos) || !replaceable(level.getBlockState(pos))) continue;
             int distance = 7;
             for (BlockPos log : logs.keySet()) distance = Math.min(distance, pos.distManhattan(log));
             if (distance < 7) level.setBlock(pos, Blocks.DARK_OAK_LEAVES.defaultBlockState()

@@ -134,25 +134,67 @@ public final class RootlandsGameTests {
 
     @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
     public static void placedFeaturesDecorateOnlyRootlands(GameTestHelper helper) {
-        var level = helper.getLevel();
-        var registry = level.registryAccess().registryOrThrow(Registries.PLACED_FEATURE);
-        BlockPos corner = helper.absolutePos(new BlockPos(1, 2, 1));
-        BlockPos origin = new BlockPos((corner.getX() + 15) & ~15, corner.getY(), (corner.getZ() + 15) & ~15);
-        var trees = registry.getOrThrow(ResourceKey.create(Registries.PLACED_FEATURE, FantasyBiomes.id("jagged_trees")));
-        helper.assertTrue(!trees.place(level, level.getChunkSource().getGenerator(), RandomSource.create(200), origin),
-                "Rootlands trees must not decorate the vanilla test biome");
-        // Fill only the surface layer; the full tall arena exceeds Minecraft's biome-fill volume limit.
-        var fill = net.minecraft.server.commands.FillBiomeCommand.fill(level,
-                helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(31, 7, 31)),
-                level.registryAccess().registryOrThrow(Registries.BIOME).getHolderOrThrow(FantasyBiomes.ROOTLANDS));
-        helper.assertTrue(fill.left().isPresent(), "Surface biome fill should succeed: " + fill);
-        for (String id : new String[]{"jagged_trees", "exposed_roots", "thorn_patches"}) {
-            var feature = registry.getOrThrow(ResourceKey.create(Registries.PLACED_FEATURE, FantasyBiomes.id(id)));
-            helper.assertTrue(feature.place(level, level.getChunkSource().getGenerator(), RandomSource.create(200), origin),
-                    "Placed feature should produce blocks in Rootlands: " + id);
+        int oldWidth = RootlandsConfig.EDGE_BLEND.get();
+        try {
+            // This arena has artificial biome borders only a few blocks away; test decoration separately from edge taper.
+            RootlandsConfig.EDGE_BLEND.set(0);
+            var level = helper.getLevel();
+            var registry = level.registryAccess().registryOrThrow(Registries.PLACED_FEATURE);
+            BlockPos corner = helper.absolutePos(new BlockPos(1, 2, 1));
+            BlockPos origin = new BlockPos((corner.getX() + 15) & ~15, corner.getY(), (corner.getZ() + 15) & ~15);
+            var trees = registry.getOrThrow(ResourceKey.create(Registries.PLACED_FEATURE, FantasyBiomes.id("jagged_trees")));
+            helper.assertTrue(!trees.place(level, level.getChunkSource().getGenerator(), RandomSource.create(200), origin),
+                    "Rootlands trees must not decorate the vanilla test biome");
+            // Fill only the surface layer; the full tall arena exceeds Minecraft's biome-fill volume limit.
+            var fill = net.minecraft.server.commands.FillBiomeCommand.fill(level,
+                    helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(31, 7, 31)),
+                    level.registryAccess().registryOrThrow(Registries.BIOME).getHolderOrThrow(FantasyBiomes.ROOTLANDS));
+            helper.assertTrue(fill.left().isPresent(), "Surface biome fill should succeed: " + fill);
+            for (String id : new String[]{"jagged_trees", "exposed_roots", "thorn_patches"}) {
+                var feature = registry.getOrThrow(ResourceKey.create(Registries.PLACED_FEATURE, FantasyBiomes.id(id)));
+                helper.assertTrue(feature.place(level, level.getChunkSource().getGenerator(), RandomSource.create(200), origin),
+                        "Placed feature should produce blocks in Rootlands: " + id);
+            }
+            helper.assertTrue(count(helper, Blocks.DARK_OAK_LOG) > 10, "Rootlands decoration should contain woody structures");
+            helper.assertTrue(count(helper, FantasyBiomes.THORN.get()) > 0, "Rootlands decoration should contain thorns");
+            helper.succeed();
+        } finally { RootlandsConfig.EDGE_BLEND.set(oldWidth); }
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
+    public static void customDecorationTapersAtBiomeEdges(GameTestHelper helper) {
+        int oldWidth = RootlandsConfig.EDGE_BLEND.get();
+        try {
+            RootlandsConfig.EDGE_BLEND.set(8);
+            var level = helper.getLevel();
+            var fill = net.minecraft.server.commands.FillBiomeCommand.fill(level,
+                    helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(31, 7, 31)),
+                    level.registryAccess().registryOrThrow(Registries.BIOME).getHolderOrThrow(FantasyBiomes.ROOTLANDS));
+            helper.assertTrue(fill.left().isPresent(), "Surface biome fill should succeed");
+            double center = RootlandsScatterFeature.edgeDensity(level, helper.absolutePos(new BlockPos(16, 2, 16)));
+            double edge = RootlandsScatterFeature.edgeDensity(level, helper.absolutePos(new BlockPos(1, 2, 16)));
+            helper.assertTrue(center == 1.0 && edge < center && edge >= 0.2, "Woodland decoration should thin out near a biome border");
+        } finally { RootlandsConfig.EDGE_BLEND.set(oldWidth); }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
+    public static void woodyDecorationPreservesSlopedGround(GameTestHelper helper) {
+        // A real stepped slope catches accidental column excavation or flattening by root/terrain searches.
+        for (int x = 0; x < 32; x++) for (int z = 0; z < 32; z++) {
+            int top = 2 + x / 8;
+            for (int y = 2; y < top; y++) helper.setBlock(x, y, z, Blocks.STONE);
+            helper.setBlock(x, top, z, Blocks.GRASS_BLOCK);
         }
-        helper.assertTrue(count(helper, Blocks.DARK_OAK_LOG) > 10, "Rootlands decoration should contain woody structures");
-        helper.assertTrue(count(helper, FantasyBiomes.THORN.get()) > 0, "Rootlands decoration should contain thorns");
+        var level = helper.getLevel();
+        helper.assertTrue(JaggedTree.place(level, helper.absolutePos(new BlockPos(16, 5, 16)), RandomSource.create(6), false), "Slope should support a jagged tree");
+        RootlandsScatterFeature.roots(level, helper.absolutePos(new BlockPos(8, 4, 8)), RandomSource.create(7), true);
+        RootlandsScatterFeature.thorns(level, helper.absolutePos(new BlockPos(22, 5, 22)), RandomSource.create(8), true);
+        for (int x = 0; x < 32; x++) for (int z = 0; z < 32; z++) {
+            int top = 2 + x / 8;
+            for (int y = 2; y < top; y++) helper.assertBlockPresent(Blocks.STONE, new BlockPos(x, y, z));
+            helper.assertTrue(!helper.getBlockState(new BlockPos(x, top, z)).isAir(), "Decoration must preserve every original ground column");
+        }
         helper.succeed();
     }
 
