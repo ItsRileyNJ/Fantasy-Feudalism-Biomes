@@ -1,0 +1,30 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="fantasy_feudalism_biomes"
+version="0.2.0"
+displayName="Fantasy Feudalism Biomes"
+description='''Rootlands: an ancient, tangled forest of jagged trees, exposed roots and hostile thorns.'''
+
+[[dependencies.fantasy_feudalism_biomes]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.262,21.2)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.fantasy_feudalism_biomes]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1,1.21.2)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.fantasy_feudalism_biomes]]
+modId="lithostitched"
+type="required"
+versionRange="[1.8.1,1.9)"
+ordering="AFTER"
+side="BOTH"

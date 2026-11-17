@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
+        "y": 0
+      },
+      {
+        "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
+        "y": 90
+      },
+      {
+        "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
+        "y": 180
+      },
+      {
+        "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
+        "y": 270
+      }
+    ]
+  }
+}

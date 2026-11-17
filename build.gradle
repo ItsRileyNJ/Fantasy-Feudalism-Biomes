@@ -1,0 +1,36 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+version = '0.2.0'
+group = 'dev.fantasyfeudalism'
+base { archivesName = 'fantasy-feudalism-biomes' }
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = '21.1.262'
+    runs {
+        client { client() }
+        server { server(); programArgument '--nogui' }
+        gameTestServer {
+            type = 'gameTestServer'
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'fantasy_feudalism_biomes'
+        }
+    }
+    mods {
+        fantasy_feudalism_biomes { sourceSet(sourceSets.main) }
+    }
+}
+
+dependencies {
+    // Supplied NeoForge artifact; includes Apollib 1.2.0 as a nested runtime mod.
+    implementation files('libs/lithostitched-1.8.1-neoforge-21.1.jar')
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
+// Integration-test classes and arena are available to dev runs, never distributed to players.
+tasks.named('jar', Jar) {
+    exclude 'dev/fantasyfeudalism/biomes/gametest/**'
+    exclude 'data/fantasy_feudalism_biomes/structure/test_arena.nbt'
+}
