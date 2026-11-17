@@ -26,13 +26,13 @@ def integers(values):
 
 
 blocks = []
-for x in range(32):
-    for z in range(32):
+for x in range(48):
+    for z in range(48):
         for y in range(44):
             blocks.append(compound([tag(9, 'pos', integers([x, y, z])), tag(3, 'state', integer(1 if y == 0 else 0))]))
 palette = [compound([tag(8, 'Name', string(name))]) for name in ['minecraft:air', 'minecraft:grass_block']]
 root = compound([
-    tag(3, 'DataVersion', integer(3955)), tag(9, 'size', integers([32, 44, 32])),
+    tag(3, 'DataVersion', integer(3955)), tag(9, 'size', integers([48, 44, 48])),
     tag(9, 'palette', b'\x0a' + integer(2) + b''.join(palette)),
     tag(9, 'blocks', b'\x0a' + integer(len(blocks)) + b''.join(blocks)),
     tag(9, 'entities', b'\x0a' + integer(0))

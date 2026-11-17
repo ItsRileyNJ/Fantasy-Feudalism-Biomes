@@ -17,7 +17,7 @@ import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 
 public final class RootlandsScatterFeature extends Feature<NoneFeatureConfiguration> {
-    public enum Kind { TREE, ROOT, THORN, FLOWER }
+    public enum Kind { TREE, ROOT, THORN, FLOWER, GIANT_THORN, GRASS }
     private final Kind kind;
 
     public RootlandsScatterFeature(Codec<NoneFeatureConfiguration> codec, Kind kind) {
@@ -34,6 +34,8 @@ public final class RootlandsScatterFeature extends Feature<NoneFeatureConfigurat
             case ROOT -> RootlandsConfig.ROOT_DENSITY.get();
             case THORN -> RootlandsConfig.THORN_DENSITY.get();
             case FLOWER -> 0;
+            case GIANT_THORN -> RootlandsConfig.GIANT_THORN_DENSITY.get();
+            case GRASS -> RootlandsConfig.GRASS_DENSITY.get();
         };
         double scaled = kind == Kind.FLOWER ? RootlandsConfig.FLOWER_FREQUENCY.get() : density * RootlandsConfig.STRUCTURE_FREQUENCY.get();
         int attempts = (int) scaled + (random.nextDouble() < scaled % 1 ? 1 : 0);
@@ -55,6 +57,10 @@ public final class RootlandsScatterFeature extends Feature<NoneFeatureConfigurat
                 placed |= roots(level, pos, random, variants);
             } else if (kind == Kind.THORN) {
                 placed |= thorns(level, pos, random, variants);
+            } else if (kind == Kind.GIANT_THORN) {
+                placed |= GiantThorns.place(level, pos, random, variants);
+            } else if (kind == Kind.GRASS) {
+                placed |= grass(level, pos, random);
             } else {
                 placed |= flowers(level, pos, random);
             }
@@ -78,7 +84,7 @@ public final class RootlandsScatterFeature extends Feature<NoneFeatureConfigurat
     public static BlockPos ground(WorldGenLevel level, int x, int z) {
         if (!level.ensureCanWrite(new BlockPos(x, level.getMinBuildHeight() + 1, z))) return null;
         int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
-        for (int y = top; y >= Math.max(level.getMinBuildHeight() + 1, top - 40); y--) {
+        for (int y = top; y >= Math.max(level.getMinBuildHeight() + 1, top - 64); y--) {
             BlockPos soil = new BlockPos(x, y - 1, z);
             if (level.getBlockState(soil).is(BlockTags.DIRT)) {
                 BlockPos pos = soil.above();
@@ -133,6 +139,17 @@ public final class RootlandsScatterFeature extends Feature<NoneFeatureConfigurat
                 placed = true;
             }
             level.setBlock(floor.below(), Blocks.COARSE_DIRT.defaultBlockState(), 2);
+        }
+        return placed;
+    }
+
+    public static boolean grass(WorldGenLevel level, BlockPos center, RandomSource random) {
+        boolean placed = false;
+        for (int attempt = 0; attempt < 6; attempt++) {
+            BlockPos pos = ground(level, center.getX() + random.nextInt(7) - 3, center.getZ() + random.nextInt(7) - 3);
+            if (pos == null || !level.getBiome(pos).is(FantasyBiomes.ROOTLANDS)) continue;
+            var grass = FantasyBiomes.DARK_GRASS.get().defaultBlockState();
+            if (grass.canSurvive(level, pos)) { level.setBlock(pos, grass, 2); placed = true; }
         }
         return placed;
     }

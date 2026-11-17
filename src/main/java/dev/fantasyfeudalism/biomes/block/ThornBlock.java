@@ -2,6 +2,10 @@ package dev.fantasyfeudalism.biomes.block;
 
 import dev.fantasyfeudalism.biomes.RootlandsConfig;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -13,8 +17,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.level.BlockGetter;
 
 public final class ThornBlock extends Block {
+    public static final EnumProperty<Direction.Axis> AXIS = RotatedPillarBlock.AXIS;
     private static final VoxelShape OUTLINE = Block.box(1, 0, 1, 15, 15, 15);
-    public ThornBlock(Properties properties) { super(properties); }
+    public ThornBlock(Properties properties) { super(properties); registerDefaultState(stateDefinition.any().setValue(AXIS, Direction.Axis.Y)); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(AXIS); }
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {

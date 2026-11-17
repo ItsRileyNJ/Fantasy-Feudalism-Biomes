@@ -4,11 +4,11 @@
   "downfall": 0.8,
   "effects": {
     "grass_color": 5001268,
-    "foliage_color": 3753261,
-    "sky_color": 9016739,
-    "fog_color": 7766124,
+    "foliage_color": 2439977,
+    "sky_color": 6056049,
+    "fog_color": 4081983,
     "water_color": 4609860,
-    "water_fog_color": 2504489,
+    "water_fog_color": 1715234,
     "mood_sound": {
       "sound": "minecraft:ambient.cave",
       "tick_delay": 6000,
@@ -83,8 +83,9 @@
     [
       "fantasy_feudalism_biomes:jagged_trees",
       "fantasy_feudalism_biomes:exposed_roots",
+      "fantasy_feudalism_biomes:giant_thorns",
       "fantasy_feudalism_biomes:thorn_patches",
-      "minecraft:patch_grass_forest",
+      "fantasy_feudalism_biomes:dark_grass",
       "minecraft:brown_mushroom_normal",
       "minecraft:red_mushroom_normal",
       "fantasy_feudalism_biomes:root_flowers"
@@ -121,9 +122,9 @@
       },
       {
         "type": "fantasy_feudalism_biomes:root_worm",
-        "weight": 10,
-        "minCount": 1,
-        "maxCount": 3
+        "weight": 30,
+        "minCount": 2,
+        "maxCount": 4
       }
     ],
     "monster": [

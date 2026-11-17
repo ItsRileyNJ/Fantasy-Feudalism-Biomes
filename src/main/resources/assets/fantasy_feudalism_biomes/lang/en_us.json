@@ -1,7 +1,11 @@
 {
   "biome.fantasy_feudalism_biomes.rootlands": "Rootlands",
-  "block.fantasy_feudalism_biomes.rootlands_thorn": "Rootlands Thorns",
+  "block.fantasy_feudalism_biomes.rootlands_thorn": "Thorn",
   "block.fantasy_feudalism_biomes.root_flower": "Root Flower",
   "entity.fantasy_feudalism_biomes.root_worm": "Root Worm",
-  "item.fantasy_feudalism_biomes.root_worm_spawn_egg": "Root Worm Spawn Egg"
+  "item.fantasy_feudalism_biomes.root_worm_spawn_egg": "Root Worm Spawn Egg",
+  "itemGroup.fantasy_feudalism_biomes": "Fantasy Feudalism - Biomes",
+  "block.fantasy_feudalism_biomes.rootlands_sapling": "Rootlands Sapling",
+  "block.fantasy_feudalism_biomes.rootlands_leaves": "Rootlands Leaves",
+  "block.fantasy_feudalism_biomes.dark_grass": "Dark Grass"
 }

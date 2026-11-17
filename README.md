@@ -1,16 +1,14 @@
-# Fantasy Feudalism - Biomes — Rootlands
+# Fantasy Feudalism - Biomes
 
-The first biome for Fantasy Feudalism: a dark, old woodland with tall, bent trees, jagged ascending limbs, exposed roots, dirt patches and damaging thorn walls, neutral Root Worms and sparse Root Flowers.
+Rootlands is an old, dark woodland of tall crooked trees, exposed roots, twisting thorn arches, dark grass plants, small Root Flowers and neutral Root Worms.
 
-## Requirements
+## Install and build
 
 - Minecraft **1.21.1**, Java **21**, NeoForge **21.1.262**.
-- **Lithostitched 1.8.1 for NeoForge 21.1**, installed on client and server. The supplied JAR bundles Apollib 1.2.0.
-- Gradle is pinned through the included wrapper; no global Gradle installation is needed.
+- Install **Lithostitched 1.8.1 for NeoForge 21.1** on both client and server; the supplied artifact includes Apollib 1.2.0.
+- Install `build/libs/Fantasy Feudalism - Biomes-0.4.0.jar` alongside Lithostitched in the game's `mods/` directory. Remove the older Fantasy Feudalism mod JAR when upgrading.
 
-The uploaded Lithostitched artifact is retained in `libs/` for repeatable local builds. It is a compile/runtime development dependency and **is not embedded in our output JAR**. Its SHA-256 is `e0da669fa5facc61a09b9b7bae21b322993de1fcd1eb05787adffb7309598cca`. Its MIT license is recorded in `THIRD_PARTY.md`. Regions Unexplored is reference material only and is not required or bundled.
-
-## Develop and build
+The JAR under this repository's `libs/` directory is the **Lithostitched dependency**, not the Fantasy Feudalism mod. It is used for repeatable local builds and is not embedded in our output. See `THIRD_PARTY.md` and `licenses/`. Regions Unexplored is not required or bundled.
 
 ```sh
 ./gradlew build
@@ -18,135 +16,112 @@ The uploaded Lithostitched artifact is retained in `libs/` for repeatable local 
 ./gradlew runClient
 ```
 
-On Windows, use `gradlew.bat`. Set `JAVA_HOME` to a Java 21 JDK if Gradle cannot find one. In the prepared cloud machine, the JDK is `/workspace/toolchains/jdk-21.0.9+10`; its network proxy launcher is `/workspace/gradle-cloud.py` (for example, `python3 /workspace/gradle-cloud.py build`). No proxy settings or credentials are stored in this project.
+Use `gradlew.bat` on Windows and set `JAVA_HOME` to a Java 21 JDK if needed. Gradle is pinned through the included checksum-verified wrapper. On the prepared cloud machine the JDK is `/workspace/toolchains/jdk-21.0.9+10`, and proxy-aware commands can be run as `python3 /workspace/gradle-cloud.py build`. Machine-specific proxy configuration and credentials are not stored in this repository.
 
-The distributable is `build/libs/Fantasy Feudalism - Biomes-0.3.0.jar`. Put it and the supplied Lithostitched JAR into the `mods/` directory of a matching NeoForge installation. The JAR in the repository's `libs/` directory is the Lithostitched dependency, not the compiled Fantasy Feudalism mod. Integration-test classes and their arena are excluded from the distributable.
+For a dedicated development server use `./gradlew runServer`; review Minecraft's EULA and configure the server first. The project does not accept the EULA automatically.
 
-For dedicated development servers use `./gradlew runServer`; review Minecraft's EULA and configure the server before starting. No normal server EULA is accepted by this project automatically.
-
-## Find Rootlands
-
-Create a **new default Overworld** and use:
+## Find and explore Rootlands
 
 ```mcfunction
 /locate biome fantasy_feudalism_biomes:rootlands
 ```
 
-Use the coordinates returned by the command to teleport there. Cheats/operator permissions are required. Rootlands selects broad, smoothly contoured regions across eligible dark forest, forest, birch forest and old-growth birch forest territory, retaining vanilla terrain shape. `biomeSize` controls the spatial scale independently of `biomeWeight`, which adjusts coverage. The default coverage setting of 35 is **not 35% of the world**. Existing explored chunks are not regenerated. Superflat does not provide the normal climate-based biome distribution.
+Operator/cheat permissions are needed. Newly generated Rootlands regions occupy the interior of vanilla **dark forest**, preserving a neighboring dark-oak-forest rim. A continuous low-frequency selection mask controls regional scale; a 32-block vanilla-forest buffer prevents the mod from consuming an entire parent forest. Actual biome dimensions are limited by the parent forest, rivers and climate boundaries. Superflat does not provide this distribution.
 
-## Appearance and generation
+The base terrain density remains vanilla. A separate early shoreline pass grades land toward sea level and continues into a shallow gravel bed near oceans and rivers. It also runs in neighboring water/beach biomes so it does not stop at an administrative biome or chunk boundary. Its world-aligned four-block sampling grid, interpolation and bounded caches avoid generation-order-dependent steps. It samples the uncaved terrain waterline, refining ambiguous points with final terrain density; the coastline is an approximation, not a survey of every block or modded lake.
 
-- Dark olive grass with a restrained warm/brown cast; dark green foliage, muted water and fog colors.
-- Noise-based patches of rooted dirt and coarse dirt on the surface.
-- Procedural trees roughly 20–30 blocks tall, with thick lower trunks, stepped bends, rising sharp branches and irregular foliage clusters. Branch tips extend beyond the leaves.
-- Ground-following dark-oak root clusters with occasional stripped sections and raised knuckles.
-- Rough thorn clusters and walls one to three blocks tall. The thorn block has its own model and contact behavior, and appears in the Natural Blocks creative tab.
-- Root Worms: neutral creatures that retaliate when attacked, prefer root-heavy ground, and visually nibble without consuming blocks. They are weak to fire/lava and flee nearby heat.
-- Root Flowers: small, gaunt brown bushes with tiny red and white blossoms, configurable contact damage and slowing.
-- Ordinary Overworld ores, caves, springs and forest wildlife. Vanilla woodland mansions are permitted in the biome.
+**Worldgen changes affect new chunks only.** Existing cliffs, old biome placement and already explored terrain are not rewritten. Use a separate new world for a clean visual comparison without deleting your existing saves. Foreign blocks, existing logs, ores and block entities are protected from the shore pass. Other mods that change terrain after our early generation pass can still change the final shore.
 
-Trees and roots use vanilla dark oak materials in this first implementation. The design is generated in Java, so no external structure templates are needed. The biome overrides leaf tint; grass colors vary with Minecraft's biome blending settings. The final appearance should be reviewed in a client before treating its visual tuning as final.
+## Creative tab and items
 
-## Configuration
+The creative tab is named exactly **Fantasy Feudalism - Biomes** and contains:
 
-The first launch creates `config/fantasy_feudalism_biomes-common.toml` under the game directory (the dev run uses `run/`). Restart the game/server after editing. Worldgen changes affect newly generated chunks.
+- Root Worm Spawn Egg
+- Root Flower
+- Thorn
+- Rootlands Sapling
+- Rootlands Leaves
+- Dark Grass
 
-| Setting under `[rootlands]` | Default | Meaning |
-| --- | --- | --- |
-| `enabled` | `true` | Allow Rootlands to be selected during generation. |
-| `biomeWeight` | `35` | Relative coverage of eligible forest territory; higher values cover more woodland, 0 disables selection. |
-| `biomeSize` | `2048` | Horizontal region scale in blocks; rivers and climate boundaries can limit actual biome dimensions. |
-| `edgeBlendWidth` | `24` | Width in blocks over which custom decoration thins near other biomes; 0 disables tapering. |
-| `treeDensity` | `5` | Tree placement attempts per biome chunk. |
-| `rootDensity` | `8` | Root-cluster placement attempts per chunk. |
-| `thornDensity` | `10` | Thorn cluster/wall attempts per chunk. |
-| `structureFrequency` | `1.0` | Multiply tree, root and thorn attempts; 0 disables them. Surface dirt patches remain. |
-| `structureVariants` | `true` | Vary tree height/lean, branch lengths, root layouts and thorn dimensions. False uses base shapes; placement locations still vary. |
-| `thornDamageEnabled` | `true` | Contact damage to living entities. |
-| `thornDamage` | `1.0` | Health points per hit; 2 points = one heart. Vanilla damage cooldown applies. |
-| `thornSlowEnabled` | `true` | Slow living entities on contact, independently of damage. |
-
-Density settings count **attempts**, not guaranteed placements: unsuitable ground, water and occupied tree space cause attempts to be skipped. Server settings control authoritative damage and generation; keep client common settings consistent for movement prediction.
-
-## Exact implementation paths
-
-Paths below are relative to the repository root:
-
-- Biome: `src/main/resources/data/fantasy_feudalism_biomes/worldgen/biome/rootlands.json`.
-- Configured and placed features: corresponding `worldgen/configured_feature/` and `worldgen/placed_feature/` directories; IDs are `jagged_trees`, `exposed_roots`, `thorn_patches`.
-- Ground rule: `src/main/resources/data/fantasy_feudalism_biomes/lithostitched/surface_rule/rootlands.json`.
-- Ground-rule injection: `src/main/resources/data/fantasy_feudalism_biomes/lithostitched/worldgen_modifier/rootlands_surface.json`.
-- Biome selection: `src/main/java/dev/fantasyfeudalism/biomes/worldgen/RootlandsIntegration.java`.
-- Tree geometry: `src/main/java/dev/fantasyfeudalism/biomes/worldgen/JaggedTree.java`.
-- Root/thorn layouts and surface scattering: `src/main/java/dev/fantasyfeudalism/biomes/worldgen/RootlandsScatterFeature.java`.
-- Thorn behavior: `src/main/java/dev/fantasyfeudalism/biomes/block/ThornBlock.java`.
-- Thorn model: `src/main/resources/assets/fantasy_feudalism_biomes/models/block/rootlands_thorn.json`.
-
-`tools/generate_resources.py` deterministically writes biome, feature, model, loot and tag JSON. Change it and rerun `python3 tools/generate_resources.py` when adjusting those resources; do not hand-edit generated JSON and then overwrite it with the generator. Modify Java tree/root algorithms directly to replace procedural shapes. New custom materials or template structures can be added later while keeping the stable biome ID.
-
-## Validation
-
-`runGameTestServer` runs eighteen integration tests inside Minecraft: tall tree geometry/foliage, atomic rejection of obstructed trunks, root/thorn placement and soil changes, configured thorn damage, zero-frequency generation, real Lithostitched biome selection plus registry/surface-rule decoding, and actual placed-feature decoration restricted to Rootlands. The additional tests cover worm neutrality/retaliation, fire/lava weakness, escape path planning and the heat toggle, root preference without destruction, flower contact categories/damage, actual movement reduction, and patch size/frequency. Terrain regression tests additionally fill real noise chunks at Rootlands boundaries for three seeds, compare their block volumes to unmodified vanilla generation, verify that surface rules preserve column heights, verify larger selection scales and decoration tapering, and check that tree/root/thorn decoration preserves a sloped stone foundation. They are dev-only tests and are not a replacement for an in-client visual review or broad multi-seed performance testing.
-
-Current validation: the Java 21 / NeoForge 21.1.262 build passed and all **18 required GameTests passed** with the supplied Lithostitched/Apollib runtime. Client rendering and a visual playthrough have not yet been checked.
-
-Build scaffolding is based on NeoForgeMDKs/MDK-1.21.1-ModDevGradle at commit `e0000cb81c6ca4bb218046cfd8ade771a42e9c32`; its license is retained in `TEMPLATE_LICENSE.txt`.
-
-
-## Root Worm (0.2.0)
-
-Root Worms spawn in Rootlands in groups of 1–3. Their spawn checks favor root-rich ground; they also wander toward dense roots. They do not proactively target players, and retaliate only after being attacked. Their bark-brown segmented model slithers when moving and its jaw nibbles when feeding near roots. Feeding is cosmetic: **no root, soil or structure blocks are consumed**, regardless of `mobGriefing`.
-
-Use the creative spawn egg or:
+The plant items are also available under Natural Blocks, and the spawn egg remains under Spawn Eggs. The thorn's displayed name is **Thorn**; its saved ID remains `fantasy_feudalism_biomes:rootlands_thorn` for world compatibility.
 
 ```mcfunction
+/give @s fantasy_feudalism_biomes:rootlands_sapling
+/give @s fantasy_feudalism_biomes:dark_grass
+/give @s fantasy_feudalism_biomes:root_flower
 /summon fantasy_feudalism_biomes:root_worm ~ ~ ~
 ```
 
-Settings under `[rootWorm]` in the common configuration:
+## Trees, vegetation and atmosphere
 
-| Setting | Default | Meaning |
+The trees have four distinct forms: **Crooked Crown**, **Forked Spire**, **Windswept**, and **Hollow Elder**. They feature thick tapering trunks, connected angular boughs, secondary forks, irregular layered crowns, hanging bare twigs and buttress roots. Height varies roughly from 24 to 40 blocks. Elders have a hollow lower trunk; forked trees split into upper spires; windswept trees lean farther to one side.
+
+A single Rootlands Sapling grows one tree, naturally or with bone meal, including outside Rootlands. There is no two-by-two sapling requirement. Tree space is validated before placement; obstructed growth restores the sapling without leaving a partial tree. Custom leaves can drop Rootlands Saplings; shears or Silk Touch collect the leaves themselves. The wood uses vanilla dark oak materials.
+
+**Dark Grass is a grass plant, not a grass block variant.** It grows in patches above the existing soil and has its own dark texture. The biome also has darker fog, sky and foliage colors, with denser custom canopy detail. These changes do not force night or alter the world's time.
+
+Large thorn structures form intertwined arches roughly 9–16 blocks high and 9–14 blocks across, with irregular lateral loops, forks, bends and smaller spurs. The almost-black bark texture and axis-oriented thorn blocks follow the direction of growth. Smaller thorn clusters remain around their bases. Thorn contact damage and slowing apply to the large structures as well.
+
+Root Flowers are small, gaunt brown bushes with sparse white/red blooms. They generate in small patches and can damage and slow entities independently by category. They are not berry-producing bushes and do not have berry growth stages.
+
+## Root Worms
+
+Root Worms are neutral until attacked, retaliate against an attacker, and prefer root-rich ground. Their segmented model slithers while moving and nibbles when feeding. **Feeding is cosmetic and never consumes roots or structure blocks**, regardless of `mobGriefing`.
+
+They are weak to fire/lava, flee nearby heat, and panic while burning. Their natural spawn weight is **30** (previously 10), with groups of **2–4** (previously 1–3). Root-rich ground always passes their habitat check; ordinary suitable Rootlands soil now passes **50%** of checks rather than 20%. Vanilla creature caps and other spawn rules still apply, so those figures are not a guaranteed worms-per-minute rate.
+
+## Configuration
+
+The first launch creates `config/fantasy_feudalism_biomes-common.toml` under the game directory (`run/` in development). Restart after editing. Keep client common settings consistent with the server for movement prediction; the server controls authoritative generation and damage.
+
+| Section / setting | Default | Meaning |
 | --- | --- | --- |
-| `fireWeaknessEnabled` | `true` | Enable extra damage from fire and lava. |
-| `fireDamageMultiplier` | `2.0` | Multiply non-lava fire damage. |
-| `lavaDamageMultiplier` | `2.0` | Multiply lava damage, without stacking the fire multiplier. |
-| `avoidHeat` | `true` | Flee heat and panic when burning. Escape still depends on reachable terrain. |
-| `additionalHeatSources` | torch, soul torch | Additional block IDs the worm fears. |
+| `rootlands.enabled` | `true` | Enable selecting Rootlands during new generation. |
+| `rootlands.biomeWeight` | `35` | Coverage bias within eligible dark forest; not a world percentage. Zero disables selection. |
+| `rootlands.biomeSize` | `2048` | Horizontal selection scale in blocks; not a guaranteed biome width. |
+| `rootlands.edgeBlendWidth` | `24` | Distance over which custom decoration thins near other biomes; zero disables tapering. |
+| `rootlands.gentleShores` | `true` | Enable grading nearby shores and shallow beds. |
+| `rootlands.shoreWidth` | `64` | Shore transition width in blocks, including blending into adjacent biomes. |
+| `rootlands.treeDensity` | `5` | Tree attempts per chunk. |
+| `rootlands.rootDensity` | `8` | Standalone root-cluster attempts per chunk; trees also have attached roots. |
+| `rootlands.thornDensity` | `10` | Small thorn cluster attempts per chunk. |
+| `rootlands.giantThornDensity` | `2` | Large twisting arch attempts per chunk. |
+| `rootlands.darkGrassDensity` | `14` | Dark grass plant patch attempts per chunk. |
+| `rootlands.structureFrequency` | `1.0` | Scales tree/root/thorn/grass attempts; zero skips them, but not soil patches, flowers or shore grading. |
+| `rootlands.structureVariants` | `true` | Vary tree forms, heights, roots and thorn layouts. False uses base shapes. |
+| `rootlands.thornDamageEnabled` | `true` | Contact damage from Thorn blocks. |
+| `rootlands.thornDamage` | `1.0` | Health points per accepted hit; two points equal one heart. |
+| `rootlands.thornSlowEnabled` | `true` | Slow living entities touching thorns. |
+| `rootFlower.patchFrequency` | `2.0` | Patch attempts per chunk; fractional values supported, zero disables patches. |
+| `rootFlower.minimumPatchSize` | `3` | Minimum plants attempted per patch. |
+| `rootFlower.maximumPatchSize` | `7` | Maximum plants attempted; reversed minimum/maximum values are normalized. |
+| `rootFlower.damage` | `1.0` | Contact damage; zero disables it. |
+| `rootFlower.slowAmount` | `0.2` | Horizontal movement reduction: 0.2 means 20%; zero disables it. |
+| `rootFlower.affectPlayers` | `true` | Apply flower effects to players. |
+| `rootFlower.affectPassiveMobs` | `true` | Apply to passive/neutral mobs, including Root Worms. |
+| `rootFlower.affectHostileMobs` | `true` | Apply to Minecraft `Enemy` mobs. |
+| `rootWorm.fireWeaknessEnabled` | `true` | Enable extra fire/lava damage. |
+| `rootWorm.fireDamageMultiplier` | `2.0` | Multiply non-lava fire damage. |
+| `rootWorm.lavaDamageMultiplier` | `2.0` | Multiply lava damage without stacking the other multiplier. |
+| `rootWorm.avoidHeat` | `true` | Flee reachable heat and panic when burning. |
+| `rootWorm.additionalHeatSources` | torch, soul torch | Additional block IDs to fear. |
 
-Fire and lava are always recognized as heat sources; lit campfires, soul campfires and magma blocks are included through `data/fantasy_feudalism_biomes/tags/block/root_worm_heat_sources.json`. Unlit blocks with a `lit` property are not treated as active heat sources. Add further heat sources using the config or a datapack tag. Root attraction uses the `root_worm_food` block tag, which includes rooted dirt and our dark oak root materials.
+Densities and patch sizes count **placement attempts**, not guaranteed successful placements. Obstructions, water, biome boundaries and occupied tree space can reduce the actual count. Disabled flower categories receive neither damage nor slowing. Vanilla damage cooldowns, creative/spectator protections and damage immunity still apply.
 
-Entity behavior lives in `src/main/java/dev/fantasyfeudalism/biomes/entity/`; the original model, rendering and animation live in `client/RootWormModel.java` and `client/RootWormRenderer.java`. The deterministic texture is `assets/fantasy_feudalism_biomes/textures/entity/root_worm.png` under the resources directory. No Regions Unexplored assets or entity implementations are copied.
+Fire and lava are recognized as heat. Lit campfires, soul campfires and magma blocks are included through the `root_worm_heat_sources` block tag. Unlit blocks with a `lit` property are not treated as active heat. Root attraction uses `root_worm_food`, including rooted dirt and root log materials.
 
-## Root Flower (0.2.0)
+## Development paths and checks
 
-Root Flowers generate in small Rootlands patches and survive on dirt-family blocks, including rooted/coarse dirt. They have no berry growth stages. Their white/red blooms and thin dry stems fit between roots and thorns. They can be collected and placed, or obtained from Natural Blocks in creative:
+All Java code is under `src/main/java/dev/fantasyfeudalism/biomes/`:
 
-```mcfunction
-/give @s fantasy_feudalism_biomes:root_flower
-```
+- `worldgen/RootlandsIntegration.java` and `DarkForestInterior.java`: regional biome selection and preserved dark-oak rim.
+- `worldgen/RootlandsShoreFeature.java` and `ShorelineProfile.java`: coast grading and chunk-consistent influence fields.
+- `worldgen/JaggedTree.java` and `RootlandsTreeFeature.java`: tree variants and sapling growth.
+- `worldgen/GiantThorns.java` and `RootlandsScatterFeature.java`: arches, root clusters, grass and flower placement.
+- `block/`: contact behavior and grass plant definition; `entity/`: worm behavior; `client/`: worm model/animation and leaf colors.
 
-Settings under `[rootFlower]`:
+Resources are under `src/main/resources/data/fantasy_feudalism_biomes/` and `src/main/resources/assets/fantasy_feudalism_biomes/`. Registry IDs are stable. `tools/generate_resources.py` deterministically writes the worldgen/model/loot/tag resources and original pixel textures. Edit that script and regenerate rather than overwriting its generated files by hand. `tools/generate_test_arena.py` generates the development-only test arena.
 
-| Setting | Default | Meaning |
-| --- | --- | --- |
-| `patchFrequency` | `2.0` | Patch attempts per Rootlands chunk; fractional values are supported; 0 disables patches. |
-| `minimumPatchSize` | `3` | Minimum number of plants attempted per patch. |
-| `maximumPatchSize` | `7` | Maximum plants attempted; reversed min/max values are normalized. |
-| `damage` | `1.0` | Contact damage in health points; 0 disables it. |
-| `slowAmount` | `0.2` | Horizontal movement reduction: 0.2 means 20%; 0 disables slowing. |
-| `affectPlayers` | `true` | Apply damage and slowing to players. |
-| `affectPassiveMobs` | `true` | Apply effects to passive/neutral mobs, including Root Worms. |
-| `affectHostileMobs` | `true` | Apply effects to mobs implementing Minecraft's hostile `Enemy` classification. |
+The integration suite covers biome selection and dark-forest adjacency, raw terrain density/surface parity, intentional shore grading, real noise-generated coastal columns, narrow rivers, chunk-border continuity, protected structures and supported shore caps, tree variants, sapling growth/failure, renewable leaves, the dark grass plant, giant thorn arches, root/flower/thorn generation, creative-tab contents, spawn settings, worm behavior and contact configuration. Test classes and the arena are excluded from the distributable JAR. Client rendering and a visual playthrough remain separate checks; broad compatibility with every other worldgen mod is not established.
 
-Disabled categories receive neither effect. Vanilla damage cooldowns, creative/spectator protections and damage immunity still apply. Patch sizes are placement targets; obstructions, unsuitable ground and biome boundaries can reduce the actual count. Flower frequency is independent of Rootlands' tree/root/thorn `structureFrequency`.
-
-Exact resource IDs: `worldgen/configured_feature/root_flowers.json`, `worldgen/placed_feature/root_flowers.json` and `loot_table/blocks/root_flower.json` under `data/fantasy_feudalism_biomes/`. The model is `assets/fantasy_feudalism_biomes/models/block/root_flower.json`. Change `tools/generate_resources.py` and regenerate to modify the patch resource data, original flower geometry or original worm texture.
-
-
-## 0.3.0: broad woodlands and longer Root Worm
-
-Rootlands now uses its own low-frequency continuous noise mask, rather than choosing small parts of only dark-forest regions through a cellular region mask. It can span neighboring forest types. `biomeSize` defaults to 2048 and can range from 256 to 8192; this is a horizontal noise scale, not a guaranteed minimum width. `biomeWeight` still adjusts coverage independently. The selection mask is used only to choose biome IDs and is **not connected to Minecraft's terrain density/noise router**. Dense custom decoration tapers near other biomes rather than ending at full density along the edge. Feature writes are checked against the generation region.
-
-The Root Worm keeps its bark-brown, low segmented design but now has nine tapering segments instead of five, making its model roughly 1.8 times as long. Its face has a heavier bark brow and cheek plates, narrow amber eyes, a dark mouth, small ivory teeth and an animated lower jaw. Client visuals still require an in-game review.
-
-Changing biome placement affects newly generated chunks. Existing terrain is not repaired or regenerated. For a clean comparison, test a separate new world without deleting your existing saves. The reported straight-sided holes/cliffs have **not been reproduced** by the current density/surface and decoration regression checks; these checks do not establish compatibility with every other worldgen mod or cover the entire carving/structure pipeline. A seed, coordinates, complete worldgen mod list and relevant game log are needed to investigate a specific affected location.
+Build scaffolding derives from NeoForgeMDKs/MDK-1.21.1-ModDevGradle at `e0000cb81c6ca4bb218046cfd8ade771a42e9c32`; its license is retained in `TEMPLATE_LICENSE.txt`. The mod contains no Regions Unexplored classes, textures or structures.

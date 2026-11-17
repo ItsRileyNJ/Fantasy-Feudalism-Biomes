@@ -8,7 +8,9 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public final class RootlandsConfig {
     public static final ModConfigSpec SPEC;
     public static final ModConfigSpec.BooleanValue ENABLED;
-    public static final ModConfigSpec.IntValue BIOME_WEIGHT, BIOME_SIZE, EDGE_BLEND, TREE_DENSITY, ROOT_DENSITY, THORN_DENSITY;
+    public static final ModConfigSpec.IntValue BIOME_WEIGHT, BIOME_SIZE, EDGE_BLEND, TREE_DENSITY, ROOT_DENSITY, THORN_DENSITY, GIANT_THORN_DENSITY, GRASS_DENSITY;
+    public static final ModConfigSpec.BooleanValue GENTLE_SHORES;
+    public static final ModConfigSpec.IntValue SHORE_WIDTH;
     public static final ModConfigSpec.DoubleValue STRUCTURE_FREQUENCY, THORN_DAMAGE;
     public static final ModConfigSpec.BooleanValue VARIANTS, THORNS_HURT, THORNS_SLOW;
     public static final ModConfigSpec.DoubleValue FLOWER_FREQUENCY, FLOWER_DAMAGE, FLOWER_SLOW;
@@ -28,12 +30,18 @@ public final class RootlandsConfig {
                 .defineInRange("biomeSize", 2048, 256, 8192);
         EDGE_BLEND = builder.comment("Distance in blocks over which custom decoration tapers near other biomes; 0 disables tapering.")
                 .defineInRange("edgeBlendWidth", 24, 0, 96);
+        GENTLE_SHORES = builder.comment("Grade land and shallow seabeds near Rootlands water borders during new chunk generation.")
+                .define("gentleShores", true);
+        SHORE_WIDTH = builder.comment("Shoreline transition width in blocks. Also blends into neighboring biomes to avoid a seam at the biome border.")
+                .defineInRange("shoreWidth", 64, 16, 128);
         TREE_DENSITY = builder.comment("Jagged tree attempts per Rootlands chunk, before frequency scaling.")
                 .defineInRange("treeDensity", 5, 0, 24);
         ROOT_DENSITY = builder.comment("Exposed root cluster attempts per chunk.")
                 .defineInRange("rootDensity", 8, 0, 64);
         THORN_DENSITY = builder.comment("Thorn cluster / wall attempts per chunk.")
                 .defineInRange("thornDensity", 10, 0, 64);
+        GIANT_THORN_DENSITY = builder.comment("Large twisting above-ground thorn arch attempts per chunk.").defineInRange("giantThornDensity", 2, 0, 12);
+        GRASS_DENSITY = builder.comment("Dark grass plant patch attempts per chunk; this is not a grass-block variant.").defineInRange("darkGrassDensity", 14, 0, 64);
         STRUCTURE_FREQUENCY = builder.comment("Scales all procedural tree, root and thorn attempts; 0 disables them. Dirt surface patches remain.")
                 .defineInRange("structureFrequency", 1.0, 0.0, 3.0);
         VARIANTS = builder.comment("Vary tree heights, lean directions, roots and thorn wall layouts. False uses a consistent base layout.")

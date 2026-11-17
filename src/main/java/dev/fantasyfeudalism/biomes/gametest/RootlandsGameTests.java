@@ -40,7 +40,7 @@ public final class RootlandsGameTests {
         boolean placed = JaggedTree.place(helper.getLevel(), base, RandomSource.create(42), false);
         helper.assertTrue(placed, "Jagged tree should fit in clear arena");
         helper.assertTrue(count(helper, Blocks.DARK_OAK_LOG) > 90, "Tree needs a substantial branching trunk");
-        helper.assertTrue(count(helper, Blocks.DARK_OAK_LEAVES) > 100, "Tree needs living foliage");
+        helper.assertTrue(count(helper, FantasyBiomes.ROOTLANDS_LEAVES.get()) > 100, "Tree needs living foliage");
         helper.assertBlockPresent(Blocks.DARK_OAK_LOG, new BlockPos(16, 25, 13));
         helper.succeed();
     }
@@ -98,7 +98,7 @@ public final class RootlandsGameTests {
         try {
             RootlandsConfig.STRUCTURE_FREQUENCY.set(0.0);
             var level = helper.getLevel();
-            for (var feature : new RootlandsScatterFeature[]{FantasyBiomes.JAGGED_TREES.get(), FantasyBiomes.EXPOSED_ROOTS.get(), FantasyBiomes.THORN_PATCHES.get()}) {
+            for (var feature : new RootlandsScatterFeature[]{FantasyBiomes.JAGGED_TREES.get(), FantasyBiomes.EXPOSED_ROOTS.get(), FantasyBiomes.THORN_PATCHES.get(), FantasyBiomes.GIANT_THORNS.get(), FantasyBiomes.DARK_GRASS_PATCHES.get()}) {
                 helper.assertTrue(!feature.place(new FeaturePlaceContext<>(Optional.empty(), level, level.getChunkSource().getGenerator(), RandomSource.create(17),
                         helper.absolutePos(new BlockPos(16, 2, 16)), NoneFeatureConfiguration.INSTANCE)), "Zero frequency must skip generation");
             }
@@ -200,7 +200,7 @@ public final class RootlandsGameTests {
 
     private static int count(GameTestHelper helper, Block block) {
         int count = 0;
-        for (int x = 0; x < 32; x++) for (int z = 0; z < 32; z++) for (int y = 0; y < 44; y++) {
+        for (int x = 0; x < 48; x++) for (int z = 0; z < 48; z++) for (int y = 0; y < 44; y++) {
             if (helper.getBlockState(new BlockPos(x, y, z)).is(block)) count++;
         }
         return count;

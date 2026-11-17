@@ -38,6 +38,112 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder(FantasyBiomes.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class RootlandsTerrainGameTests {
+    @GameTest(template = "test_arena", timeoutTicks = 200, skyAccess = true)
+    public static void rootlandsRetainsNeighboringDarkOakForest(GameTestHelper helper) {
+        var registries = helper.getLevel().registryAccess();
+        var preset = registries.registryOrThrow(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST)
+                .getHolderOrThrow(ResourceKey.create(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST, ResourceLocation.withDefaultNamespace("overworld")));
+        var settings = registries.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD);
+        for (long seed : new long[]{12345, -94127}) {
+            var original = MultiNoiseBiomeSource.createFromPreset(preset);
+            var generator = new NoiseBasedChunkGenerator(MultiNoiseBiomeSource.createFromPreset(preset), settings);
+            var dimensions = new MappedRegistry<LevelStem>(Registries.LEVEL_STEM, Lifecycle.stable());
+            dimensions.register(LevelStem.OVERWORLD, new LevelStem(helper.getLevel().dimensionTypeRegistration(), generator), RegistrationInfo.BUILT_IN);
+            dimensions.freeze();
+            BiomeInjectorManager.applyBiomeInjectors(registries, dimensions, seed);
+            var sampler = RandomState.create(settings.value(), registries.lookupOrThrow(Registries.NOISE), seed).sampler();
+            int sampled = 0;
+            for (int x = -1024; x <= 1024 && sampled < 8; x += 8) for (int z = -1024; z <= 1024 && sampled < 8; z += 8) {
+                if (!generator.getBiomeSource().getNoiseBiome(x, 20, z, sampler).is(FantasyBiomes.ROOTLANDS)) continue;
+                helper.assertTrue(original.getNoiseBiome(x, 20, z, sampler).is(net.minecraft.world.level.biome.Biomes.DARK_FOREST), "Rootlands must originate in dark oak forest");
+                for (int[] direction : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                    boolean foundRim = false;
+                    for (int distance = 1; distance <= 1024; distance++) {
+                        var neighbor = generator.getBiomeSource().getNoiseBiome(x + direction[0] * distance, 20, z + direction[1] * distance, sampler);
+                        if (!neighbor.is(FantasyBiomes.ROOTLANDS)) {
+                            helper.assertTrue(neighbor.is(net.minecraft.world.level.biome.Biomes.DARK_FOREST), "Rootlands edge must retain neighboring dark oak forest");
+                            foundRim = true;
+                            break;
+                        }
+                    }
+                    helper.assertTrue(foundRim, "Rootlands must retain an outer forest rim");
+                }
+                sampled++;
+            }
+            helper.assertTrue(sampled > 0, "Need Rootlands samples for adjacency regression, seed " + seed);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 200, skyAccess = true)
+    public static void shorelineGradesRealMinecraftNoiseTerrain(GameTestHelper helper) {
+        var registries = helper.getLevel().registryAccess();
+        var biomes = registries.registryOrThrow(Registries.BIOME);
+        var settings = registries.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD);
+        var generator = new NoiseBasedChunkGenerator(new net.minecraft.world.level.biome.FixedBiomeSource(biomes.getHolderOrThrow(FantasyBiomes.ROOTLANDS)), settings);
+        var random = RandomState.create(settings.value(), registries.lookupOrThrow(Registries.NOISE), 12345L);
+        LevelHeightAccessor height = LevelHeightAccessor.create(-64, 384);
+        BlockPos coast = null;
+        // Find actual vanilla terrain with a raised land column and nearby water, independent of a hand-built test shape.
+        for (int x = -2048; x <= 2048 && coast == null; x += 64) for (int z = -2048; z <= 2048 && coast == null; z += 64) {
+            int top = generator.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, height, random) - 1;
+            if (top < 80) continue;
+            for (int[] delta : new int[][]{{32, 0}, {-32, 0}, {0, 32}, {0, -32}}) {
+                if (generator.getBaseHeight(x + delta[0], z + delta[1], Heightmap.Types.OCEAN_FLOOR_WG, height, random) - 1 < 63) {
+                    coast = new BlockPos(x, top, z);
+                    break;
+                }
+            }
+        }
+        helper.assertTrue(coast != null, "Need a real raised shoreline for regression");
+        var pos = new ChunkPos(coast);
+        StructureManager noStructures = new StructureManager(helper.getLevel(), new WorldOptions(12345, false, false), null) {
+            @Override public List<StructureStart> startsForStructure(ChunkPos chunk, Predicate<Structure> predicate) { return List.of(); }
+        };
+        var chunk = new ProtoChunk(pos, UpgradeData.EMPTY, height, biomes, null);
+        generator.createBiomes(random, Blender.empty(), noStructures, chunk).join();
+        generator.fillFromNoise(Blender.empty(), random, noStructures, chunk).join();
+        // Adapt the real noise-filled chunk to the minimal read/write contract used by the shore pass.
+        var access = (net.minecraft.world.level.WorldGenLevel) java.lang.reflect.Proxy.newProxyInstance(
+                net.minecraft.world.level.WorldGenLevel.class.getClassLoader(), new Class<?>[]{net.minecraft.world.level.WorldGenLevel.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getMinBuildHeight" -> -64;
+                    case "getMaxBuildHeight" -> 320;
+                    case "ensureCanWrite" -> new ChunkPos((BlockPos) args[0]).equals(pos);
+                    case "getBlockState" -> chunk.getBlockState((BlockPos) args[0]);
+                    case "setBlock" -> { chunk.setBlockState((BlockPos) args[0], (net.minecraft.world.level.block.state.BlockState) args[1], false); yield true; }
+                    case "toString" -> "Noise-filled shore test chunk";
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
+        int errors = 0, totalSamples = 0;
+        for (int dx = -64; dx <= 64; dx += 16) for (int dz = -64; dz <= 64; dz += 16) {
+            int x = pos.getMinBlockX() + dx, z = pos.getMinBlockZ() + dz;
+            boolean wet = generator.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, height, random) - 1 < 63;
+            if (dev.fantasyfeudalism.biomes.worldgen.RootlandsShoreFeature.waterAtSeaLevel(random, x, z, 63) != wet) errors++;
+            totalSamples++;
+        }
+        helper.assertTrue(errors < totalSamples / 5, "Fast waterline field must agree with the actual surface near the coast");
+        System.out.println("Fast waterline comparison errors=" + errors + " samples=" + totalSamples);
+        long started = System.nanoTime();
+        var profile = new dev.fantasyfeudalism.biomes.worldgen.ShorelineProfile(pos.getMinBlockX(), pos.getMinBlockZ(), 63, 64,
+                (x, z) -> new dev.fantasyfeudalism.biomes.worldgen.ShorelineProfile.Sample(
+                        dev.fantasyfeudalism.biomes.worldgen.RootlandsShoreFeature.waterAtSeaLevel(random, x, z, 63), true));
+        int graded = 0;
+        for (int x = pos.getMinBlockX(); x <= pos.getMaxBlockX(); x++) for (int z = pos.getMinBlockZ(); z <= pos.getMaxBlockZ(); z++) {
+            int original = chunk.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x & 15, z & 15);
+            int target = profile.targetHeight(x, z, original);
+            if (dev.fantasyfeudalism.biomes.worldgen.RootlandsShoreFeature.reshapeColumn(access, x, z, original, target, 63)) {
+                graded++;
+                helper.assertTrue(!chunk.getBlockState(new BlockPos(x, target, z)).isAir(), "Graded column must have a solid cap");
+                if (target < original && target >= 63) helper.assertTrue(chunk.getBlockState(new BlockPos(x, target + 1, z)).isAir(), "Raised shore should taper down to the new cap");
+                if (target < 63) helper.assertTrue(chunk.getBlockState(new BlockPos(x, 63, z)).getFluidState().is(net.minecraft.tags.FluidTags.WATER), "Submerged shore must retain water to sea level");
+            }
+        }
+        helper.assertTrue(graded > 0, "Real noise-generated shoreline must actually be graded");
+        System.out.println("Graded real Rootlands shore chunk=" + pos + " columns=" + graded + " uncached profile/pass ms=" + ((System.nanoTime() - started) / 1000000));
+        helper.succeed();
+    }
+
     @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
     public static void biomeSizeProducesBroaderContinuousAreas(GameTestHelper helper) {
         int previous = RootlandsConfig.BIOME_SIZE.get();
@@ -53,7 +159,9 @@ public final class RootlandsTerrainGameTests {
                     // Fixed-biome worlds intentionally opt out of normal runtime injection, so apply the callback explicitly here.
                     var source = new dev.worldgen.lithostitched.impl.worldgen.biomeinjector.internal.InjectorBiomeSource(new net.minecraft.world.level.biome.FixedBiomeSource(forest));
                     var injectors = new java.util.HashMap<ResourceLocation, dev.worldgen.lithostitched.api.worldgen.biomeinjector.BiomeInjector>();
-                    dev.worldgen.lithostitched.api.event.AddBiomeInjectorsEvent.EVENT.invoker().addInjectors(registries, injectors::put);
+                    injectors.put(FantasyBiomes.id("area_scale_test"), dev.worldgen.lithostitched.api.worldgen.biomeinjector.BiomeInjector.builder(net.minecraft.world.level.Level.OVERWORLD)
+                            .replacePartially(forest, registries.registryOrThrow(Registries.BIOME).getHolderOrThrow(FantasyBiomes.ROOTLANDS),
+                                    dev.fantasyfeudalism.biomes.worldgen.RootlandsIntegration.areaParameters(registries)));
                     var random = RandomState.create(settings.value(), registries.lookupOrThrow(Registries.NOISE), seed);
                     source.applyInjectors(injectors, java.util.Optional.empty(), java.util.Map.of(),
                             new dev.worldgen.lithostitched.api.worldgen.util.DensityFunctionWrapper(seed, false, random,

@@ -1,0 +1,71 @@
+package dev.fantasyfeudalism.biomes.worldgen;
+
+/**
+ * A world-aligned shore influence field. Sampling original terrain, never neighboring decorated chunks,
+ * makes the result independent of chunk generation order. The same grid corner has the same value in
+ * either neighboring chunk, and bilinear interpolation prevents a step at the chunk boundary.
+ */
+public final class ShorelineProfile {
+    public static final int STEP = 4;
+    public record Sample(boolean wet, boolean rootlands) {}
+    @FunctionalInterface public interface Sampler { Sample sample(int x, int z); }
+    private final int chunkX, chunkZ, seaLevel;
+    private final double[][] weights = new double[5][5];
+
+    public ShorelineProfile(int chunkX, int chunkZ, int seaLevel, int width, Sampler sampler) {
+        this.chunkX = chunkX;
+        this.chunkZ = chunkZ;
+        this.seaLevel = seaLevel;
+        int margin = sampleMargin(width);
+        int firstX = chunkX - margin;
+        int firstZ = chunkZ - margin;
+        int count = (16 + margin * 2) / STEP + 1;
+        Sample[][] terrain = new Sample[count][count];
+        for (int x = 0; x < count; x++) for (int z = 0; z < count; z++) {
+            terrain[x][z] = sampler.sample(firstX + x * STEP, firstZ + z * STEP);
+        }
+        for (int cx = 0; cx < 5; cx++) for (int cz = 0; cz < 5; cz++) {
+            int wx = chunkX + cx * STEP;
+            int wz = chunkZ + cz * STEP;
+            boolean wet = terrain[(wx - firstX) / STEP][(wz - firstZ) / STEP].wet();
+            double opposite = Double.POSITIVE_INFINITY;
+            double root = Double.POSITIVE_INFINITY;
+            for (int x = 0; x < count; x++) for (int z = 0; z < count; z++) {
+                int dx = firstX + x * STEP - wx;
+                int dz = firstZ + z * STEP - wz;
+                double distance = (double) dx * dx + (double) dz * dz;
+                if ((terrain[x][z].wet()) != wet) opposite = Math.min(opposite, distance);
+                if (terrain[x][z].rootlands()) root = Math.min(root, distance);
+            }
+            double shore = 1.0 - smooth(Math.sqrt(opposite) / width);
+            // Extend through neighboring beach/river biomes, then fade, rather than creating a wall at their border.
+            // Keep full grading through the preserved dark-forest rim, then fade into unrelated shores.
+            double influence = 1.0 - smooth((Math.sqrt(root) - width) / width);
+            weights[cx][cz] = shore * influence;
+        }
+    }
+
+    public double strength(int x, int z) {
+        double gx = (x - chunkX) / (double) STEP;
+        double gz = (z - chunkZ) / (double) STEP;
+        int ix = Math.clamp((int) Math.floor(gx), 0, 3);
+        int iz = Math.clamp((int) Math.floor(gz), 0, 3);
+        double tx = Math.clamp(gx - ix, 0, 1);
+        double tz = Math.clamp(gz - iz, 0, 1);
+        double north = weights[ix][iz] * (1 - tx) + weights[ix + 1][iz] * tx;
+        double south = weights[ix][iz + 1] * (1 - tx) + weights[ix + 1][iz + 1] * tx;
+        return north * (1 - tz) + south * tz;
+    }
+
+    public int targetHeight(int x, int z, int originalTop) {
+        double amount = strength(x, z);
+        return (int) Math.round(originalTop * (1 - amount) + (seaLevel - 2) * amount);
+    }
+
+    public static int sampleMargin(int width) { return ((width * 2 + 12 + STEP - 1) / STEP) * STEP; }
+
+    private static double smooth(double value) {
+        double t = Math.clamp(value, 0, 1);
+        return t * t * (3 - 2 * t);
+    }
+}

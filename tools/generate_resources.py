@@ -20,7 +20,7 @@ def condition(test, result):
 
 write('pack.mcmeta', {'pack': {'pack_format': 48, 'description': 'Fantasy Feudalism - Biomes — Rootlands'}})
 write(f'assets/{NS}/lang/en_us.json', {
-    f'biome.{NS}.rootlands': 'Rootlands', f'block.{NS}.rootlands_thorn': 'Rootlands Thorns'
+    f'biome.{NS}.rootlands': 'Rootlands', f'block.{NS}.rootlands_thorn': 'Thorn'
 })
 features = [[] for _ in range(11)]
 features[1] = ['minecraft:lake_lava_underground', 'minecraft:lake_lava_surface']
@@ -102,7 +102,7 @@ write(f'assets/{NS}/lang/en_us.json', lang)
 biome_path = ROOT / f'data/{NS}/worldgen/biome/rootlands.json'
 biome = json.loads(biome_path.read_text())
 biome['features'][9].append(f'{NS}:root_flowers')
-biome['spawners']['creature'].append({'type': f'{NS}:root_worm', 'weight': 10, 'minCount': 1, 'maxCount': 3})
+biome['spawners']['creature'].append({'type': f'{NS}:root_worm', 'weight': 30, 'minCount': 2, 'maxCount': 4})
 write(f'data/{NS}/worldgen/biome/rootlands.json', biome)
 data('worldgen/configured_feature/root_flowers', {'type': f'{NS}:root_flowers', 'config': {}})
 data('worldgen/placed_feature/root_flowers', {'feature': f'{NS}:root_flowers', 'placement': []})
@@ -164,3 +164,85 @@ texture.write_bytes(png)
 
 # Low-frequency, continuous biome-selection mask. Never connected to the terrain noise router.
 data('worldgen/noise/rootlands_area', {'firstOctave': -10, 'amplitudes': [1.0, 0.35]})
+
+# Shore grading is the first generation feature, before lakes, structures and vegetation.
+biome = json.loads(biome_path.read_text())
+# The runtime modifier adds it once to all Overworld biomes so it also grades neighboring water chunks.
+write(f'data/{NS}/worldgen/biome/rootlands.json', biome)
+data('worldgen/configured_feature/shoreline', {'type': f'{NS}:shoreline', 'config': {}})
+data('worldgen/placed_feature/shoreline', {'feature': f'{NS}:shoreline', 'placement': []})
+lang = json.loads(lang_path.read_text())
+lang[f'itemGroup.{NS}'] = 'Fantasy Feudalism - Biomes'
+write(f'assets/{NS}/lang/en_us.json', lang)
+
+# Detailed Rootlands vegetation and renewable tree materials.
+lang = json.loads(lang_path.read_text())
+lang.update({f'block.{NS}.rootlands_sapling': 'Rootlands Sapling', f'block.{NS}.rootlands_leaves': 'Rootlands Leaves', f'block.{NS}.dark_grass': 'Dark Grass'})
+write(f'assets/{NS}/lang/en_us.json', lang)
+biome = json.loads(biome_path.read_text())
+biome['effects'].update({'fog_color': 0x3E493F, 'sky_color': 0x5C6871, 'foliage_color': 0x253B29, 'water_fog_color': 0x1A2C22})
+biome['features'][9] = [f'{NS}:jagged_trees', f'{NS}:exposed_roots', f'{NS}:giant_thorns', f'{NS}:thorn_patches', f'{NS}:dark_grass', 'minecraft:brown_mushroom_normal', 'minecraft:red_mushroom_normal', f'{NS}:root_flowers']
+write(f'data/{NS}/worldgen/biome/rootlands.json', biome)
+for name in ['giant_thorns', 'dark_grass', 'sapling_tree']:
+    data('worldgen/configured_feature/' + name, {'type': f'{NS}:{name}', 'config': {}})
+    if name != 'sapling_tree':
+        data('worldgen/placed_feature/' + name, {'feature': f'{NS}:{name}', 'placement': []})
+
+# Keep standard dark-oak log materials; custom leaves let these trees drop their own sapling.
+write(f'assets/{NS}/blockstates/rootlands_leaves.json', {'variants': {'': {'model': f'{NS}:block/rootlands_leaves'}}})
+write(f'assets/{NS}/models/block/rootlands_leaves.json', {'parent': 'minecraft:block/leaves', 'render_type': 'minecraft:cutout_mipped', 'textures': {'all': 'minecraft:block/dark_oak_leaves'}})
+write(f'assets/{NS}/models/item/rootlands_leaves.json', {'parent': f'{NS}:block/rootlands_leaves'})
+for name in ['rootlands_sapling', 'dark_grass']:
+    write(f'assets/{NS}/blockstates/{name}.json', {'variants': {'': {'model': f'{NS}:block/{name}'}}})
+    write(f'assets/{NS}/models/block/{name}.json', {'parent': 'minecraft:block/cross', 'render_type': 'minecraft:cutout', 'textures': {'cross': f'{NS}:block/{name}'}})
+    write(f'assets/{NS}/models/item/{name}.json', {'parent': 'minecraft:item/generated', 'textures': {'layer0': f'{NS}:block/{name}'}})
+
+for tag_name, value in [('leaves', 'rootlands_leaves'), ('mineable/hoe', 'rootlands_leaves'), ('saplings', 'rootlands_sapling'), ('replaceable', 'dark_grass')]:
+    write(f'data/minecraft/tags/block/{tag_name}.json', {'replace': False, 'values': [f'{NS}:{value}']})
+for tag_name, value in [('leaves', 'rootlands_leaves'), ('saplings', 'rootlands_sapling')]:
+    write(f'data/minecraft/tags/item/{tag_name}.json', {'replace': False, 'values': [f'{NS}:{value}']})
+for name in ['dark_grass', 'rootlands_sapling']:
+    data(f'loot_table/blocks/{name}', {'type': 'minecraft:block', 'pools': [{'rolls': 1, 'entries': [{'type': 'minecraft:item', 'name': f'{NS}:{name}'}], 'conditions': [{'condition': 'minecraft:survives_explosion'}]}]})
+shears_or_silk = {'condition': 'minecraft:any_of', 'terms': [
+    {'condition': 'minecraft:match_tool', 'predicate': {'items': 'minecraft:shears'}},
+    {'condition': 'minecraft:match_tool', 'predicate': {'predicates': {'minecraft:enchantments': [{'enchantments': 'minecraft:silk_touch', 'levels': {'min': 1}}]}}}
+]}
+data('loot_table/blocks/rootlands_leaves', {'type': 'minecraft:block', 'pools': [{'rolls': 1, 'entries': [{'type': 'minecraft:alternatives', 'children': [
+    {'type': 'minecraft:item', 'name': f'{NS}:rootlands_leaves', 'conditions': [shears_or_silk]},
+    {'type': 'minecraft:item', 'name': f'{NS}:rootlands_sapling', 'conditions': [{'condition': 'minecraft:random_chance', 'chance': 0.075}, {'condition': 'minecraft:survives_explosion'}]}
+]}]}]})
+
+# Orient the same damaging thorn along each growth direction; its registry ID is retained for existing saves.
+write(f'assets/{NS}/blockstates/rootlands_thorn.json', {'variants': {
+    'axis=y': {'model': f'{NS}:block/rootlands_thorn'},
+    'axis=x': {'model': f'{NS}:block/rootlands_thorn', 'x': 90, 'y': 90},
+    'axis=z': {'model': f'{NS}:block/rootlands_thorn', 'x': 90}
+}})
+thorn_model = json.loads((ROOT / f'assets/{NS}/models/block/rootlands_thorn.json').read_text())
+thorn_model['textures'] = {'bark': f'{NS}:block/thorn_bark', 'particle': f'{NS}:block/thorn_bark'}
+write(f'assets/{NS}/models/block/rootlands_thorn.json', thorn_model)
+
+# Original deterministic pixel textures for the dark grass plant, sapling and almost-black thorn bark.
+def save_pixels(name, width, height, pixel):
+    rows = b''.join(b'\0' + b''.join(bytes(pixel(x, y)) for x in range(width)) for y in range(height))
+    payload = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b'')
+    dst = ROOT / f'assets/{NS}/textures/block/{name}.png'
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_bytes(payload)
+
+def grass_pixel(x, y):
+    blades = [(2, 7, -1), (5, 3, 1), (8, 1, 0), (11, 5, -1), (14, 8, 1)]
+    for base, top, bend in blades:
+        if y >= top and abs(x - (base + bend * (15 - y) // 6)) <= (1 if y > 11 else 0):
+            return (25 + (x * 5 + y) % 14, 42 + y % 9, 27 + x % 8, 255)
+    return (0, 0, 0, 0)
+
+def sapling_pixel(x, y):
+    if (7 <= x <= 8 and y >= 6) or (y >= 11 and abs(x - 8) <= (15 - y) // 2): return (58, 42, 29, 255)
+    for cx, cy in [(5, 5), (9, 3), (11, 7), (5, 9)]:
+        if abs(x - cx) + abs(y - cy) < 4 and (x + y) % 5 != 0: return (34 + x % 8, 56 + y % 12, 35 + y % 7, 255)
+    return (0, 0, 0, 0)
+
+save_pixels('dark_grass', 16, 16, grass_pixel)
+save_pixels('rootlands_sapling', 16, 16, sapling_pixel)
+save_pixels('thorn_bark', 16, 16, lambda x, y: (19 + (x * 3 + y * 7) % 10, 15 + (x + y) % 8, 19 + (x * 2 + y) % 9, 255))

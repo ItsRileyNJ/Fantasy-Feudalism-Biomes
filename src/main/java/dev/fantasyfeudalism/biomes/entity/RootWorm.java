@@ -119,7 +119,7 @@ public final class RootWorm extends PathfinderMob {
         if (!level.getBiome(pos).is(FantasyBiomes.ROOTLANDS) || !level.getFluidState(pos).isEmpty()) return false;
         BlockState soil = level.getBlockState(pos.below());
         if (!soil.is(BlockTags.DIRT) && !soil.is(ROOT_FOOD)) return false;
-        // Root-rich spots always pass; bare soil remains possible, but considerably less common.
-        return rootInterest(level, pos) >= 3 || random.nextInt(5) == 0;
+        // Root-rich spots always pass; ordinary Rootlands soil now passes half of the time instead of one fifth.
+        return rootInterest(level, pos) >= 3 || random.nextBoolean();
     }
 }
