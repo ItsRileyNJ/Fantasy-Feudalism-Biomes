@@ -1,8 +1,8 @@
 {
   "parent": "minecraft:block/block",
   "textures": {
-    "bark": "fantasy_feudalism_biomes:block/thorn_bark",
-    "particle": "fantasy_feudalism_biomes:block/thorn_bark"
+    "bark": "minecraft:block/dark_oak_log",
+    "particle": "minecraft:block/dark_oak_log"
   },
   "elements": [
     {

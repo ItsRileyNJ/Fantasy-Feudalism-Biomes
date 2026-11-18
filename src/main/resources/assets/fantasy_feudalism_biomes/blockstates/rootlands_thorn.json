@@ -1,28 +1,106 @@
 {
   "variants": {
-    "facing=up": {
+    "facing=up,twist=0": {
       "model": "fantasy_feudalism_biomes:block/rootlands_thorn"
     },
-    "facing=down": {
+    "facing=up,twist=1": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_1"
+    },
+    "facing=up,twist=2": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_2"
+    },
+    "facing=up,twist=3": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_3"
+    },
+    "facing=down,twist=0": {
       "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
       "x": 180
     },
-    "facing=north": {
+    "facing=down,twist=1": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_1",
+      "x": 180
+    },
+    "facing=down,twist=2": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_2",
+      "x": 180
+    },
+    "facing=down,twist=3": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_3",
+      "x": 180
+    },
+    "facing=north,twist=0": {
       "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
       "x": 90
     },
-    "facing=south": {
+    "facing=north,twist=1": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_1",
+      "x": 90
+    },
+    "facing=north,twist=2": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_2",
+      "x": 90
+    },
+    "facing=north,twist=3": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_3",
+      "x": 90
+    },
+    "facing=south,twist=0": {
       "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
       "x": 90,
       "y": 180
     },
-    "facing=east": {
+    "facing=south,twist=1": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_1",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,twist=2": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_2",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,twist=3": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_3",
+      "x": 90,
+      "y": 180
+    },
+    "facing=east,twist=0": {
       "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
       "x": 90,
       "y": 90
     },
-    "facing=west": {
+    "facing=east,twist=1": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_1",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,twist=2": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_2",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,twist=3": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_3",
+      "x": 90,
+      "y": 90
+    },
+    "facing=west,twist=0": {
       "model": "fantasy_feudalism_biomes:block/rootlands_thorn",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,twist=1": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_1",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,twist=2": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_2",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,twist=3": {
+      "model": "fantasy_feudalism_biomes:block/rootlands_thorn_twist_3",
       "x": 90,
       "y": 270
     }

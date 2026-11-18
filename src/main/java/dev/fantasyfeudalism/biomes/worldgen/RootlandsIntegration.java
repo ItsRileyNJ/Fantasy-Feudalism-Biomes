@@ -3,10 +3,8 @@ package dev.fantasyfeudalism.biomes.worldgen;
 import dev.fantasyfeudalism.biomes.FantasyBiomes;
 import dev.fantasyfeudalism.biomes.RootlandsConfig;
 import dev.worldgen.lithostitched.api.event.AddBiomeInjectorsEvent;
-import dev.worldgen.lithostitched.api.event.AddWorldgenModifiersEvent;
 import dev.worldgen.lithostitched.api.worldgen.biomeinjector.BiomeInjector;
 import dev.worldgen.lithostitched.api.worldgen.biomeinjector.ParameterBuilder;
-import dev.worldgen.lithostitched.api.worldgen.modifier.WorldgenModifier;
 import java.util.List;
 import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
@@ -18,8 +16,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
-import net.minecraft.tags.BiomeTags;
-import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.DensityFunction;
 import net.minecraft.world.level.levelgen.DensityFunctions;
 import net.minecraft.world.level.levelgen.synth.NormalNoise;
@@ -30,15 +26,6 @@ public final class RootlandsIntegration {
     public static final List<ResourceKey<Biome>> TARGETS = List.of(Biomes.DARK_FOREST);
 
     public static void register() {
-        AddWorldgenModifiersEvent.EVENT.register((registries, consumer) -> {
-            var biomes = registries.registryOrThrow(Registries.BIOME);
-            var shores = registries.registryOrThrow(Registries.PLACED_FEATURE)
-                    .getHolderOrThrow(ResourceKey.create(Registries.PLACED_FEATURE, FantasyBiomes.id("shoreline")));
-            // Include neighboring water/beach biomes: stopping this pass at the Rootlands border would create a seam.
-            consumer.accept(FantasyBiomes.id("gentle_shores"), WorldgenModifier.builder().addFeatures(
-                    HolderSet.direct(biomes.holders().filter(holder -> holder.is(BiomeTags.IS_OVERWORLD)).toList()),
-                    shores, GenerationStep.Decoration.RAW_GENERATION));
-        });
         AddBiomeInjectorsEvent.EVENT.register((registries, consumer) -> {
             if (!RootlandsConfig.ENABLED.get() || RootlandsConfig.BIOME_WEIGHT.get() <= 0) return;
             var biomes = registries.registryOrThrow(Registries.BIOME);

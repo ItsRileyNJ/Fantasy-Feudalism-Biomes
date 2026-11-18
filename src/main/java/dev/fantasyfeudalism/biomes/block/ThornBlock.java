@@ -2,6 +2,7 @@ package dev.fantasyfeudalism.biomes.block;
 
 import dev.fantasyfeudalism.biomes.FantasyBiomes;
 import dev.fantasyfeudalism.biomes.RootlandsConfig;
+import dev.fantasyfeudalism.biomes.entity.RootWorm;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -19,6 +20,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -29,19 +31,20 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public final class ThornBlock extends Block {
     // Retained so pre-0.5 saved thorn states remain readable. Facing controls the attachment and model.
     public static final EnumProperty<Direction.Axis> AXIS = RotatedPillarBlock.AXIS;
+    public static final IntegerProperty TWIST = IntegerProperty.create("twist", 0, 3);
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public static final TagKey<Block> SUPPORTS = TagKey.create(Registries.BLOCK, FantasyBiomes.id("thorn_supports"));
 
     public ThornBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(AXIS, Direction.Axis.Y).setValue(FACING, Direction.UP));
+        registerDefaultState(stateDefinition.any().setValue(AXIS, Direction.Axis.Y).setValue(FACING, Direction.UP).setValue(TWIST, 0));
     }
 
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(AXIS, FACING); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(AXIS, FACING, TWIST); }
 
     @Override public BlockState getStateForPlacement(BlockPlaceContext context) {
         Direction face = context.getClickedFace();
-        BlockState state = defaultBlockState().setValue(FACING, face).setValue(AXIS, face.getAxis());
+        BlockState state = defaultBlockState().setValue(FACING, face).setValue(AXIS, face.getAxis()).setValue(TWIST, context.getHorizontalDirection().get2DDataValue());
         return state.canSurvive(context.getLevel(), context.getClickedPos()) ? state : null;
     }
 
@@ -66,7 +69,7 @@ public final class ThornBlock extends Block {
     }
 
     @Override protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
-        if (!(entity instanceof LivingEntity)) return;
+        if (!(entity instanceof LivingEntity) || entity instanceof RootWorm) return;
         if (RootlandsConfig.THORNS_SLOW.get()) entity.makeStuckInBlock(state, new Vec3(0.65, 0.9, 0.65));
         if (!level.isClientSide && RootlandsConfig.THORNS_HURT.get() && RootlandsConfig.THORN_DAMAGE.get() > 0) {
             entity.hurt(level.damageSources().sweetBerryBush(), RootlandsConfig.THORN_DAMAGE.get().floatValue());

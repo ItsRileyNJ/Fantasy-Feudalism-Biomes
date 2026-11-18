@@ -9,7 +9,6 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.QuartPos;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.WorldGenLevel;
@@ -20,30 +19,31 @@ import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.DensityFunction;
 import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator;
 import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 
-/** First decoration stage: grade shores before trees, plants, ores and structure pieces are placed. */
+/** Shore grading runs at SURFACE, before any neighboring chunk can decorate. The old feature ID is a no-op. */
 public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguration> {
-    private static final Map<ServerLevel, ConcurrentHashMap<Long, ShorelineProfile.Sample>> CACHE =
+    private static final Map<RandomState, ConcurrentHashMap<Long, ShorelineProfile.Sample>> CACHE =
             Collections.synchronizedMap(new WeakHashMap<>());
-    private static final Map<ServerLevel, ConcurrentHashMap<Long, Boolean>> BIOME_CACHE =
+    private static final Map<RandomState, ConcurrentHashMap<Long, Boolean>> BIOME_CACHE =
             Collections.synchronizedMap(new WeakHashMap<>());
 
     public RootlandsShoreFeature(Codec<NoneFeatureConfiguration> codec) { super(codec); }
 
-    @Override public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
-        if (!RootlandsConfig.GENTLE_SHORES.get() || !(context.chunkGenerator() instanceof NoiseBasedChunkGenerator generator)) return false;
-        WorldGenLevel region = context.level();
-        ServerLevel level = region.getLevel();
-        var random = level.getChunkSource().randomState();
+    /** Compatibility for old data-pack references. Terrain must never be edited during FEATURES. */
+    @Override public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) { return false; }
+
+    public static boolean gradeSurface(WorldGenLevel region, NoiseBasedChunkGenerator generator, RandomState random, ChunkAccess chunk) {
+        if (!RootlandsConfig.GENTLE_SHORES.get() || !region.getLevel().dimension().equals(net.minecraft.world.level.Level.OVERWORLD)) return false;
         int sea = generator.getSeaLevel();
-        int chunkX = context.origin().getX() & ~15;
-        int chunkZ = context.origin().getZ() & ~15;
+        int chunkX = chunk.getPos().getMinBlockX();
+        int chunkZ = chunk.getPos().getMinBlockZ();
         int width = RootlandsConfig.SHORE_WIDTH.get();
         int margin = ShorelineProfile.sampleMargin(width);
         ConcurrentHashMap<Long, Boolean> rootBiomes;
-        synchronized (BIOME_CACHE) { rootBiomes = BIOME_CACHE.computeIfAbsent(level, ignored -> new ConcurrentHashMap<>()); }
+        synchronized (BIOME_CACHE) { rootBiomes = BIOME_CACHE.computeIfAbsent(random, ignored -> new ConcurrentHashMap<>()); }
         if (rootBiomes.size() > 131072) rootBiomes.clear();
         // Cache biome-only queries first, so far-away biomes never need expensive terrain height queries.
         java.util.function.BiPredicate<Integer, Integer> isRootlands = (x, z) -> rootBiomes.computeIfAbsent(BlockPos.asLong(x, 0, z), ignored ->
@@ -56,7 +56,7 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
         }
         if (!nearby) return false;
         ConcurrentHashMap<Long, ShorelineProfile.Sample> samples;
-        synchronized (CACHE) { samples = CACHE.computeIfAbsent(level, ignored -> new ConcurrentHashMap<>()); }
+        synchronized (CACHE) { samples = CACHE.computeIfAbsent(random, ignored -> new ConcurrentHashMap<>()); }
         if (samples.size() > 65536) samples.clear();
         ShorelineProfile profile = new ShorelineProfile(chunkX, chunkZ, sea, width, (x, z) ->
                 samples.computeIfAbsent(BlockPos.asLong(x, 0, z), ignored -> {
@@ -65,10 +65,14 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
                     return new ShorelineProfile.Sample(wet, rootlands);
                 }));
         boolean changed = false;
-        // Only write the current chunk; all neighboring samples are deterministic generator queries, not chunk loads.
+        int[] originalHeights = new int[256];
+        for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
+            originalHeights[x * 16 + z] = chunk.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z);
+        }
+        // SURFACE owns the chunk, before decoration. Snapshot original noise heights, not vegetation heightmaps.
         for (int x = chunkX; x < chunkX + 16; x++) for (int z = chunkZ; z < chunkZ + 16; z++) {
             if (profile.strength(x, z) <= 0) continue;
-            int originalTop = region.getHeight(Heightmap.Types.OCEAN_FLOOR, x, z) - 1;
+            int originalTop = originalHeights[(x - chunkX) * 16 + z - chunkZ];
             changed |= reshapeColumn(region, x, z, originalTop, profile.targetHeight(x, z, originalTop), sea);
         }
         return changed;
@@ -90,7 +94,7 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
         if (!level.ensureCanWrite(new BlockPos(x, targetTop, z))) return false;
         int lower = Math.min(originalTop, targetTop);
         int upper = Math.max(originalTop, targetTop);
-        // Reject a column containing built structures, logs, ores or mod blocks we don't explicitly know are terrain.
+        // Reject built structures, logs, block entities and blocks outside the explicit natural-terrain set.
         for (int y = Math.max(lower - 3, level.getMinBuildHeight()); y <= Math.max(upper, sea); y++) {
             BlockState state = level.getBlockState(new BlockPos(x, y, z));
             if (state.hasBlockEntity() || !natural(state)) return false;
@@ -115,6 +119,8 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
 
     private static boolean natural(BlockState state) {
         return state.isAir() || state.is(Blocks.WATER)
+                || state.is(BlockTags.IRON_ORES) || state.is(BlockTags.COPPER_ORES)
+                || state.is(Blocks.RAW_IRON_BLOCK) || state.is(Blocks.RAW_COPPER_BLOCK)
                 || state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(BlockTags.DIRT) || state.is(BlockTags.SAND)
                 || state.is(Blocks.GRAVEL) || state.is(Blocks.CLAY) || state.is(Blocks.SANDSTONE)
                 || state.is(Blocks.RED_SANDSTONE) || state.is(Blocks.SNOW) || state.is(Blocks.SNOW_BLOCK)

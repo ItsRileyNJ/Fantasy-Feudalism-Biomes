@@ -11,18 +11,24 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.util.Mth;
 
-/** Long root-bark worm: simple friendly face, with most detail in its segmented body. */
+/** Long root-bark worm: a plated snout and articulated bite, with most detail in its segmented body. */
 public final class RootWormModel extends HierarchicalModel<RootWorm> {
     public static final ModelLayerLocation LAYER = new ModelLayerLocation(FantasyBiomes.id("root_worm"), "main");
     private final ModelPart root;
     private final ModelPart[] segments = new ModelPart[9];
-    private final ModelPart jaw;
+    private final ModelPart upperJaw;
+    private final ModelPart lowerJaw;
+    private final ModelPart leftJaw;
+    private final ModelPart rightJaw;
     private final ModelPart eyes;
 
     public RootWormModel(ModelPart root) {
         this.root = root;
         for (int i = 0; i < segments.length; i++) segments[i] = root.getChild("segment" + i);
-        jaw = segments[0].getChild("jaw");
+        upperJaw = segments[0].getChild("upper_jaw");
+        lowerJaw = segments[0].getChild("lower_jaw");
+        leftJaw = segments[0].getChild("left_jaw");
+        rightJaw = segments[0].getChild("right_jaw");
         eyes = segments[0].getChild("eyes");
     }
 
@@ -36,42 +42,52 @@ public final class RootWormModel extends HierarchicalModel<RootWorm> {
         for (int i = 0; i < widths.length; i++) {
             float w = widths[i], h = heights[i];
             var segment = root.addOrReplaceChild("segment" + i,
-                    CubeListBuilder.create().texOffs(0, i == 0 ? 0 : 12)
+                    CubeListBuilder.create().texOffs(0, i == 0 ? 0 : 16)
                             .addBox(-w / 2, -h, -lengths[i] / 2.0F, w, h, lengths[i]),
                     PartPose.offset(0, 24, z));
             if (i == 0) {
-                // Large simple eyes and a tiny closed smile replace the armored brow, maw and teeth.
-                var eyes = segment.addOrReplaceChild("eyes", CubeListBuilder.create().texOffs(48, 0)
-                        .addBox(-3.1F, -0.85F, -0.15F, 1.7F, 1.7F, 0.6F)
-                        .texOffs(48, 0).addBox(1.4F, -0.85F, -0.15F, 1.7F, 1.7F, 0.6F),
-                        PartPose.offset(0, -3.1F, -2.75F));
-                eyes.addOrReplaceChild("highlights", CubeListBuilder.create().texOffs(56, 0)
-                        .addBox(-2.9F, -0.65F, -0.3F, 0.55F, 0.55F, 0.25F)
-                        .texOffs(56, 0).addBox(1.6F, -0.65F, -0.3F, 0.55F, 0.55F, 0.25F), PartPose.ZERO);
-                segment.addOrReplaceChild("cheeks", CubeListBuilder.create().texOffs(56, 8)
-                        .addBox(-3.4F, -1.9F, -2.7F, 1.1F, 0.5F, 0.3F)
-                        .texOffs(56, 8).addBox(2.3F, -1.9F, -2.7F, 1.1F, 0.5F, 0.3F), PartPose.ZERO);
-                segment.addOrReplaceChild("jaw", CubeListBuilder.create().texOffs(48, 8)
-                        .addBox(-0.9F, 0, -0.2F, 1.8F, 0.25F, 0.25F)
-                        .addBox(-1.1F, -0.2F, -0.2F, 0.3F, 0.3F, 0.25F)
-                        .addBox(0.8F, -0.2F, -0.2F, 0.3F, 0.3F, 0.25F), PartPose.offset(0, -1.2F, -2.8F));
-                segment.addOrReplaceChild("bud", CubeListBuilder.create().texOffs(48, 16)
-                        .addBox(-0.7F, -5.55F, -1.5F, 1.4F, 0.55F, 1.1F), PartPose.ZERO);
+                // Recessed lateral eyes sit beneath layered bark plates, without cartoon cheeks or a smile.
+                segment.addOrReplaceChild("brow", CubeListBuilder.create().texOffs(32, 0)
+                        .addBox(-4.2F, -5.2F, -2.9F, 2.0F, 0.9F, 2.4F)
+                        .addBox(2.2F, -5.2F, -2.9F, 2.0F, 0.9F, 2.4F)
+                        .texOffs(0, 40).addBox(-2.9F, -5.45F, -1.9F, 5.8F, 0.7F, 3.2F), PartPose.ZERO);
+                segment.addOrReplaceChild("eyes", CubeListBuilder.create().texOffs(96, 0)
+                        .addBox(-4.15F, -0.325F, -0.55F, 0.25F, 0.65F, 1.1F)
+                        .addBox(3.9F, -0.325F, -0.55F, 0.25F, 0.65F, 1.1F), PartPose.offset(0, -3.775F, -2.25F));
+                // The throat is behind the closed overlapping plates; it becomes visible as they spread.
+                segment.addOrReplaceChild("throat", CubeListBuilder.create().texOffs(96, 16)
+                        .addBox(-2.8F, -4.6F, -2.7F, 5.6F, 4.3F, 0.15F), PartPose.ZERO);
+                var upper = segment.addOrReplaceChild("upper_jaw", CubeListBuilder.create().texOffs(32, 0)
+                        .addBox(-3.0F, -2.2F, -3.6F, 6.0F, 2.25F, 3.9F)
+                        .texOffs(0, 40).addBox(-2.6F, -2.65F, -2.6F, 5.2F, 0.55F, 2.3F),
+                        PartPose.offset(0, -2.45F, -1.7F));
+                upper.addOrReplaceChild("toothlets", CubeListBuilder.create().texOffs(112, 0)
+                        .addBox(-2.15F, 0, -3.0F, 0.55F, 0.75F, 0.7F)
+                        .addBox(1.6F, 0, -3.0F, 0.55F, 0.75F, 0.7F), PartPose.ZERO);
+                var lower = segment.addOrReplaceChild("lower_jaw", CubeListBuilder.create().texOffs(32, 16)
+                        .addBox(-2.8F, 0, -3.5F, 5.6F, 2.05F, 3.8F), PartPose.offset(0, -2.45F, -1.7F));
+                lower.addOrReplaceChild("toothlets", CubeListBuilder.create().texOffs(112, 0)
+                        .addBox(-1.8F, -0.65F, -2.9F, 0.5F, 0.7F, 0.65F)
+                        .addBox(1.3F, -0.65F, -2.9F, 0.5F, 0.7F, 0.65F), PartPose.ZERO);
+                segment.addOrReplaceChild("left_jaw", CubeListBuilder.create().texOffs(32, 0)
+                        .addBox(-1.0F, -1.55F, -3.0F, 1.2F, 3.1F, 3.4F), PartPose.offset(-2.9F, -2.5F, -1.9F));
+                segment.addOrReplaceChild("right_jaw", CubeListBuilder.create().texOffs(32, 0)
+                        .addBox(-0.2F, -1.55F, -3.0F, 1.2F, 3.1F, 3.4F), PartPose.offset(2.9F, -2.5F, -1.9F));
             } else {
-                segment.addOrReplaceChild("bark_ring", CubeListBuilder.create().texOffs(0, 24)
+                segment.addOrReplaceChild("bark_ring", CubeListBuilder.create().texOffs(0, 40)
                         .addBox(-w / 2 - 0.15F, -h - 0.15F, -0.55F, w + 0.3F, h + 0.15F, 1.1F), PartPose.ZERO);
                 if (i < 8) {
-                    segment.addOrReplaceChild("root_nubs", CubeListBuilder.create().texOffs(28, 12)
+                    segment.addOrReplaceChild("root_nubs", CubeListBuilder.create().texOffs(32, 16)
                             .addBox(-w / 2 - 0.65F, -1.5F, -0.5F, 0.9F, 0.6F, 1.3F)
                             .addBox(w / 2 - 0.25F, -1.5F, -0.5F, 0.9F, 0.6F, 1.3F), PartPose.ZERO);
-                    segment.addOrReplaceChild("moss", CubeListBuilder.create().texOffs(48, 16)
+                    segment.addOrReplaceChild("moss", CubeListBuilder.create().texOffs(96, 32)
                             .addBox(-1.3F, -h - 0.3F, -1.4F, 1.2F, 0.3F, 0.9F)
                             .addBox(0.3F, -h - 0.3F, 0.5F, 0.8F, 0.3F, 1.1F), PartPose.ZERO);
                 }
             }
             z += lengths[i] - 0.5F;
         }
-        return LayerDefinition.create(mesh, 64, 32);
+        return LayerDefinition.create(mesh, 128, 64);
     }
 
     @Override public ModelPart root() { return root; }
@@ -88,9 +104,14 @@ public final class RootWormModel extends HierarchicalModel<RootWorm> {
         }
         segments[0].yRot += netHeadYaw * Mth.DEG_TO_RAD * 0.3F;
         eyes.yScale = ageInTicks % 140 > 136 ? 0.15F : 1.0F;
+        float mouth = worm.getMouthOpenAmount(ageInTicks - worm.tickCount);
+        upperJaw.xRot = -mouth * 0.75F;
+        lowerJaw.xRot = mouth * 0.72F;
+        leftJaw.yRot = mouth * 0.58F;
+        rightJaw.yRot = -mouth * 0.58F;
         if (worm.isFeeding()) {
             segments[0].xRot = 0.06F + Mth.sin(ageInTicks * 0.5F) * 0.05F;
-            jaw.xRot = 0.04F + Mth.sin(ageInTicks * 0.9F) * 0.08F;
+            // Root nibbling remains a small head motion with the mouth closed.
         }
     }
 }

@@ -138,14 +138,14 @@ public final class ShoreAndCreativeGameTests {
     }
 
     @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
-    public static void shorePassAlsoRunsInNeighboringOceanAndRiverBiomes(GameTestHelper helper) {
+    public static void shorePassNeverRunsInDecoration(GameTestHelper helper) {
         var registry = helper.getLevel().registryAccess().registryOrThrow(Registries.BIOME);
         var feature = helper.getLevel().registryAccess().registryOrThrow(Registries.PLACED_FEATURE)
                 .getOrThrow(net.minecraft.resources.ResourceKey.create(Registries.PLACED_FEATURE, FantasyBiomes.id("shoreline")));
         for (var key : java.util.List.of(FantasyBiomes.ROOTLANDS, Biomes.BEACH, Biomes.OCEAN, Biomes.RIVER)) {
             var entries = registry.getOrThrow(key).getGenerationSettings().features().get(GenerationStep.Decoration.RAW_GENERATION.ordinal());
             long count = entries.stream().filter(holder -> holder.value() == feature).count();
-            helper.assertTrue(count == 1, "Shore grading must run exactly once in " + key.location());
+            helper.assertTrue(count == 0, "Late terrain edits must not be scheduled in " + key.location());
         }
         helper.succeed();
     }

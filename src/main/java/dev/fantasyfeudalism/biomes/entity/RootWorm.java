@@ -14,9 +14,11 @@ import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.RandomSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -40,7 +42,11 @@ import net.minecraft.world.level.pathfinder.PathType;
 public final class RootWorm extends PathfinderMob {
     public static final TagKey<Block> ROOT_FOOD = TagKey.create(Registries.BLOCK, FantasyBiomes.id("root_worm_food"));
     public static final TagKey<Block> HEAT_SOURCES = TagKey.create(Registries.BLOCK, FantasyBiomes.id("root_worm_heat_sources"));
+    private static final EntityDataAccessor<Integer> BITE_TICKS = SynchedEntityData.defineId(RootWorm.class, EntityDataSerializers.INT);
+    private static final int BITE_DURATION = 12;
     private static final EntityDataAccessor<Boolean> FEEDING = SynchedEntityData.defineId(RootWorm.class, EntityDataSerializers.BOOLEAN);
+
+    private float mouthOpen, previousMouthOpen;
 
     public RootWorm(EntityType<? extends RootWorm> type, Level level) {
         super(type, level);
@@ -60,7 +66,27 @@ public final class RootWorm extends PathfinderMob {
             @Override protected boolean shouldPanic() { return RootlandsConfig.WORM_FEAR_HEAT.get() && RootWorm.this.isOnFire(); }
         });
         goalSelector.addGoal(2, new AvoidHeatGoal(this));
-        goalSelector.addGoal(3, new MeleeAttackGoal(this, 1.15, true));
+        goalSelector.addGoal(3, new MeleeAttackGoal(this, 1.15, true) {
+            private int windup;
+
+            @Override protected void checkAndPerformAttack(LivingEntity target) {
+                if (windup > 0) {
+                    // Open first, then bite only if the target is still visible and within reach.
+                    if (--windup == 0 && mob.isWithinMeleeAttackRange(target) && mob.getSensing().hasLineOfSight(target)) {
+                        mob.doHurtTarget(target);
+                    }
+                } else if (canPerformAttack(target)) {
+                    resetAttackCooldown();
+                    entityData.set(BITE_TICKS, BITE_DURATION);
+                    windup = 4;
+                }
+            }
+
+            @Override public void stop() {
+                super.stop();
+                windup = 0;
+            }
+        });
         goalSelector.addGoal(4, new SeekRootsGoal(this));
         goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.8));
         goalSelector.addGoal(6, new RandomLookAroundGoal(this));
@@ -71,18 +97,39 @@ public final class RootWorm extends PathfinderMob {
     @Override protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(FEEDING, false);
+        builder.define(BITE_TICKS, 0);
     }
 
     @Override public void aiStep() {
         super.aiStep();
         if (!level().isClientSide) {
+            int biteTicks = entityData.get(BITE_TICKS);
+            if (biteTicks > 0) entityData.set(BITE_TICKS, biteTicks - 1);
             boolean feeding = getTarget() == null && !isOnFire() && getNavigation().isDone()
                     && tickCount % 100 < 30 && rootInterest(level(), blockPosition()) > 0;
             entityData.set(FEEDING, feeding);
+        } else {
+            // Tracking updates may arrive every few ticks; interpolate plate motion between them.
+            previousMouthOpen = mouthOpen;
+            mouthOpen = Mth.approach(mouthOpen, biteOpenAmount(0), 0.4F);
         }
     }
 
     public boolean isFeeding() { return entityData.get(FEEDING); }
+
+    public boolean isBiting() { return entityData.get(BITE_TICKS) > 0; }
+
+    /** Closed while idle, feeding or pursuing; the four mouth plates spread only for an actual bite. */
+    public float getMouthOpenAmount(float partialTick) {
+        return level().isClientSide ? Mth.lerp(Mth.clamp(partialTick, 0, 1), previousMouthOpen, mouthOpen) : biteOpenAmount(partialTick);
+    }
+
+    private float biteOpenAmount(float partialTick) {
+        int remaining = entityData.get(BITE_TICKS);
+        if (remaining == 0) return 0;
+        float elapsed = BITE_DURATION - remaining + partialTick;
+        return Math.max(0, Math.min(1, Math.min(elapsed / 3.0F, (BITE_DURATION - elapsed) / 5.0F)));
+    }
 
     @Override public boolean hurt(DamageSource source, float damage) {
         if (RootlandsConfig.WORM_FIRE_WEAKNESS.get()) {

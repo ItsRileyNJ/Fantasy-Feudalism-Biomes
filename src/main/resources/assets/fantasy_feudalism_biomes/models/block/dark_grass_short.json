@@ -1,0 +1,170 @@
+{
+  "ambientocclusion": false,
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "cross": "fantasy_feudalism_biomes:block/dark_grass",
+    "particle": "#cross"
+  },
+  "elements": [
+    {
+      "from": [
+        0.8,
+        0,
+        8
+      ],
+      "to": [
+        15.2,
+        13.5,
+        8
+      ],
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          8
+        ],
+        "axis": "y",
+        "angle": 45,
+        "rescale": true
+      },
+      "shade": false,
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#cross",
+          "tintindex": 0
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#cross",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        0,
+        8
+      ],
+      "to": [
+        14,
+        11.069999999999999,
+        8
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#cross",
+          "tintindex": 0
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#cross",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "from": [
+        8,
+        0,
+        0.8
+      ],
+      "to": [
+        8,
+        13.5,
+        15.2
+      ],
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          8
+        ],
+        "axis": "y",
+        "angle": 45,
+        "rescale": true
+      },
+      "shade": false,
+      "faces": {
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#cross",
+          "tintindex": 0
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#cross",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "from": [
+        8,
+        0,
+        2
+      ],
+      "to": [
+        8,
+        11.069999999999999,
+        14
+      ],
+      "shade": false,
+      "faces": {
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#cross",
+          "tintindex": 0
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#cross",
+          "tintindex": 0
+        }
+      }
+    }
+  ]
+}

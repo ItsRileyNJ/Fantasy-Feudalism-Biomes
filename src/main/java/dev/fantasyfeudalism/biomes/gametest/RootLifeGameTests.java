@@ -39,6 +39,64 @@ public final class RootLifeGameTests {
     }
 
     @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
+    public static void wormIgnoresThornDamageAndSlowWhileOtherMobsAreAffected(GameTestHelper helper) {
+        boolean hurt = RootlandsConfig.THORNS_HURT.get(), slow = RootlandsConfig.THORNS_SLOW.get();
+        double damage = RootlandsConfig.THORN_DAMAGE.get();
+        try {
+            RootlandsConfig.THORNS_HURT.set(true);
+            RootlandsConfig.THORNS_SLOW.set(true);
+            RootlandsConfig.THORN_DAMAGE.set(2.0);
+            var worm = helper.spawn(FantasyBiomes.ROOT_WORM.get(), 8, 2, 8);
+            var pig = helper.spawn(EntityType.PIG, 12, 2, 8);
+            var thorn = FantasyBiomes.THORN.get().defaultBlockState();
+            float hp = worm.getHealth(), pigHp = pig.getHealth();
+            double start = worm.getX(), pigStart = pig.getX();
+            thorn.entityInside(helper.getLevel(), worm.blockPosition(), worm);
+            thorn.entityInside(helper.getLevel(), pig.blockPosition(), pig);
+            helper.assertTrue(worm.getHealth() == hp && pig.getHealth() == pigHp - 2, "Only the Root Worm should be immune to thorn damage");
+            worm.move(MoverType.SELF, new Vec3(1, 0, 0));
+            pig.move(MoverType.SELF, new Vec3(1, 0, 0));
+            helper.assertTrue(Math.abs(worm.getX() - start - 1.0) < 0.01, "Thorns must not slow Root Worms");
+            helper.assertTrue(Math.abs(pig.getX() - pigStart - 0.65) < 0.01, "Other mobs must still be slowed");
+        } finally {
+            RootlandsConfig.THORNS_HURT.set(hurt);
+            RootlandsConfig.THORNS_SLOW.set(slow);
+            RootlandsConfig.THORN_DAMAGE.set(damage);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
+    public static void wormOpensMouthBeforeBitingThenClosesIt(GameTestHelper helper) {
+        var worm = helper.spawn(FantasyBiomes.ROOT_WORM.get(), 15, 2, 16);
+        var target = helper.spawn(EntityType.PIG, 22, 2, 16);
+        target.setNoAi(true);
+        helper.assertTrue(!worm.isBiting() && worm.getMouthOpenAmount(0) == 0, "Idle mouth must be closed");
+        float hp = target.getHealth();
+        boolean[] observed = new boolean[2];
+        worm.setTarget(target); // Simulate a retaliation target, without introducing player aggression.
+        helper.runAfterDelay(5, () -> {
+            helper.assertTrue(!worm.isBiting() && worm.getMouthOpenAmount(0) == 0, "Pursuit alone must not open the mouth");
+            target.setPos(Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(16, 2, 16))));
+        });
+        helper.onEachTick(() -> {
+            if (worm.isBiting() && target.getHealth() == hp && worm.getMouthOpenAmount(0) > 0) observed[0] = true;
+            if (target.getHealth() < hp && !observed[1]) {
+                helper.assertTrue(observed[0], "Mouth must open during the windup before bite damage");
+                helper.assertTrue(worm.getMouthOpenAmount(0) > 0.5F, "Bite must land with the mouth open");
+                observed[1] = true;
+                worm.setTarget(null);
+                worm.setNoAi(true);
+            }
+        });
+        helper.runAfterDelay(60, () -> {
+            helper.assertTrue(observed[0] && observed[1], "The actual melee goal must open the mouth and deliver its bite");
+            helper.assertTrue(!worm.isBiting() && worm.getMouthOpenAmount(0) == 0, "Mouth must close after the attack");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
     public static void wormFireAndLavaDamageAreAmplifiedAndConfigurable(GameTestHelper helper) {
         boolean enabled = RootlandsConfig.WORM_FIRE_WEAKNESS.get();
         double fire = RootlandsConfig.WORM_FIRE_MULTIPLIER.get();

@@ -64,6 +64,7 @@ public final class RootAttachmentGameTests {
     public static void generatedArchesAreWoodWithSupportedTopSideAndBottomThorns(GameTestHelper helper) {
         helper.assertTrue(GiantThorns.place(helper.getLevel(), helper.absolutePos(new BlockPos(8, 2, 16)), RandomSource.create(5), false), "Root arch should generate");
         var faces = EnumSet.noneOf(Direction.class);
+        var twists = new java.util.HashSet<Integer>();
         int wood = 0, spikes = 0;
         for (int x = 0; x < 32; x++) for (int z = 0; z < 32; z++) for (int y = 1; y < 25; y++) {
             BlockPos pos = helper.absolutePos(new BlockPos(x, y, z));
@@ -74,9 +75,11 @@ public final class RootAttachmentGameTests {
                 spikes++;
                 Direction face = state.getValue(ThornBlock.FACING);
                 faces.add(face);
+                twists.add(state.getValue(ThornBlock.TWIST));
                 helper.assertTrue(helper.getLevel().getBlockState(pos.relative(face.getOpposite())).is(Blocks.DARK_OAK_WOOD), "Every generated thorn must connect to root wood");
             }
         }
+        helper.assertTrue(twists.size() >= 3, "Generated thorns must vary their roll around their attachment axis");
         helper.assertTrue(wood > 70 && spikes > 20, "Arch needs a solid wood body with visible attached thorns");
         helper.assertTrue(faces.contains(Direction.UP) && faces.contains(Direction.DOWN) && faces.stream().anyMatch(f -> f.getAxis().isHorizontal()), "Arch must carry top, underside and side thorns");
         helper.succeed();

@@ -219,7 +219,7 @@ write(f'assets/{NS}/blockstates/rootlands_thorn.json', {'variants': {
     'axis=z': {'model': f'{NS}:block/rootlands_thorn', 'x': 90}
 }})
 thorn_model = json.loads((ROOT / f'assets/{NS}/models/block/rootlands_thorn.json').read_text())
-thorn_model['textures'] = {'bark': f'{NS}:block/thorn_bark', 'particle': f'{NS}:block/thorn_bark'}
+thorn_model['textures'] = {'bark': 'minecraft:block/dark_oak_log', 'particle': 'minecraft:block/dark_oak_log'}
 write(f'assets/{NS}/models/block/rootlands_thorn.json', thorn_model)
 
 # Original deterministic pixel textures for the dark grass plant, sapling and almost-black thorn bark.
@@ -231,11 +231,26 @@ def save_pixels(name, width, height, pixel):
     dst.write_bytes(payload)
 
 def grass_pixel(x, y):
-    blades = [(2, 7, -1), (5, 3, 1), (8, 1, 0), (11, 5, -1), (14, 8, 1)]
-    for base, top, bend in blades:
-        if y >= top and abs(x - (base + bend * (15 - y) // 6)) <= (1 if y > 11 else 0):
-            return (25 + (x * 5 + y) % 14, 42 + y % 9, 27 + x % 8, 255)
-    return (0, 0, 0, 0)
+    # Vanilla-style grayscale blade shading; the client applies the darker biome grass tint.
+    shades = []
+    for blade in range(13):
+        base = (blade * 7) % 16
+        tip = 1 + (blade * 5) % 9
+        if y < tip:
+            continue
+        t = (15 - y) / (15 - tip)
+        center = base + ((blade % 5) - 2) * 0.9 * t * t
+        half = max(0.55, 1.2 * (1 - t) + 0.35)
+        if abs(x - center) > half:
+            continue
+        fold = 12 if x <= center else -7
+        grain = ((x * 17 + y * 11 + blade * 5) % 17) - 8
+        shades.append(max(65, min(235, int(95 + 110 * t + fold + grain))))
+    if not shades:
+        return (0, 0, 0, 0)
+    shade = max(shades)
+    return (shade, shade, shade, 255)
+
 
 def sapling_pixel(x, y):
     if (7 <= x <= 8 and y >= 6) or (y >= 11 and abs(x - 8) <= (15 - y) // 2): return (58, 42, 29, 255)
@@ -257,39 +272,83 @@ write(f'data/{NS}/tags/block/root_worm_food.json', food)
 thorn_faces = {side: {'texture': '#bark'} for side in ['north', 'south', 'east', 'west', 'up', 'down']}
 lean = {'origin': [8, 3, 8], 'axis': 'z', 'angle': 22.5}
 write(f'assets/{NS}/models/block/rootlands_thorn.json', {'parent': 'minecraft:block/block',
-    'textures': {'bark': f'{NS}:block/thorn_bark', 'particle': f'{NS}:block/thorn_bark'},
+    'textures': {'bark': 'minecraft:block/dark_oak_log', 'particle': 'minecraft:block/dark_oak_log'},
     'elements': [
         {'from': [5, 0, 5], 'to': [11, 3, 11], 'faces': thorn_faces},
         {'from': [6, 2, 6], 'to': [10, 7, 10], 'rotation': lean, 'faces': thorn_faces},
         {'from': [7, 6, 7], 'to': [9, 11, 9], 'rotation': lean, 'faces': thorn_faces},
         {'from': [7.5, 10, 7.5], 'to': [8.5, 14, 8.5], 'rotation': lean, 'faces': thorn_faces}
     ]})
-# Axis is retained in saved states for compatibility; facing is the model/attachment direction.
+# Twist rotates the bent spike around its local growth axis, including side and underside attachments.
+# Baking local rotation into each model also works on horizontal faces where blockstate x/y alone cannot roll it.
+base = json.loads((ROOT / f'assets/{NS}/models/block/rootlands_thorn.json').read_text())
+def quarter_turn(point):
+    x, y, z = point
+    return [16 - z, y, x]
+
+face_turn = {'north': 'east', 'east': 'south', 'south': 'west', 'west': 'north', 'up': 'up', 'down': 'down'}
+for twist in range(1, 4):
+    model = json.loads(json.dumps(base))
+    for _ in range(twist):
+        for element in model['elements']:
+            a, b = quarter_turn(element['from']), quarter_turn(element['to'])
+            element['from'] = [min(a[i], b[i]) for i in range(3)]
+            element['to'] = [max(a[i], b[i]) for i in range(3)]
+            element['faces'] = {face_turn[face]: data for face, data in element['faces'].items()}
+            if 'rotation' in element:
+                rotation = element['rotation']
+                rotation['origin'] = quarter_turn(rotation['origin'])
+                if rotation['axis'] == 'z':
+                    rotation['axis'], rotation['angle'] = 'x', -rotation['angle']
+                elif rotation['axis'] == 'x':
+                    rotation['axis'] = 'z'
+    write(f'assets/{NS}/models/block/rootlands_thorn_twist_{twist}.json', model)
+
+rotations = {'up': {}, 'down': {'x': 180}, 'north': {'x': 90},
+             'south': {'x': 90, 'y': 180}, 'east': {'x': 90, 'y': 90}, 'west': {'x': 90, 'y': 270}}
 write(f'assets/{NS}/blockstates/rootlands_thorn.json', {'variants': {
-    'facing=up': {'model': f'{NS}:block/rootlands_thorn'},
-    'facing=down': {'model': f'{NS}:block/rootlands_thorn', 'x': 180},
-    'facing=north': {'model': f'{NS}:block/rootlands_thorn', 'x': 90},
-    'facing=south': {'model': f'{NS}:block/rootlands_thorn', 'x': 90, 'y': 180},
-    'facing=east': {'model': f'{NS}:block/rootlands_thorn', 'x': 90, 'y': 90},
-    'facing=west': {'model': f'{NS}:block/rootlands_thorn', 'x': 90, 'y': 270}
+    f'facing={face},twist={twist}': {'model': f'{NS}:block/rootlands_thorn' + (f'_twist_{twist}' if twist else ''), **rotation}
+    for face, rotation in rotations.items() for twist in range(4)
 }})
 
-# A simpler friendly face, with detail concentrated in the worm's bark, moss and segment rings.
-# Atlas areas match RootWormModel: dark eyes, ivory highlights, small mouth, warm cheeks and muted moss.
+# A natural bark-plated face with recessed amber-brown eyes and a shaded throat behind articulated jaws.
+# The larger atlas reserves separate regions for eyes, throat, short root-colored toothlets and moss.
 def worm_pixel(x, y):
     grain = ((x * 13 + y * 7) % 17) - 8
     shade = grain - (10 if x % 7 in [0, 1] else 0)
     color = (94 + shade, 69 + shade, 43 + shade, 255)
-    if x < 40 and y >= 24:
+    if x < 64 and 40 <= y < 56:
         color = (115 + grain, 87 + grain, 54 + grain, 255) if y % 3 else (68, 47, 30, 255)
-    if 48 <= x < 56 and y < 7: color = (25, 23, 18, 255)
-    if x >= 56 and y < 7: color = (244, 237, 215, 255)
-    if 48 <= x < 56 and 8 <= y < 14: color = (46, 29, 19, 255)
-    if x >= 56 and 8 <= y < 14: color = (147, 104, 77, 255)
-    if x >= 48 and 16 <= y < 24: color = (48 + grain // 2, 68 + grain // 2, 35 + grain // 2, 255)
+    if 96 <= x < 112 and y < 12:
+        color = (40 + grain // 3, 30 + grain // 3, 19, 255)
+        if x % 5 == 2 and y % 5 in [1, 2]: color = (119, 88, 40, 255)
+    if x >= 112 and y < 16: color = (155 + grain, 126 + grain, 81 + grain, 255)
+    if x >= 96 and 16 <= y < 30: color = (39 + grain // 3, 25 + grain // 3, 17, 255)
+    if x >= 96 and 32 <= y < 48: color = (48 + grain // 2, 68 + grain // 2, 35 + grain // 2, 255)
     return color
 
-# The common PNG writer's block directory is used for plants; the worm has a separate entity atlas.
-rows = b''.join(b'\0' + b''.join(bytes(worm_pixel(x, y)) for x in range(64)) for y in range(32))
-png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 64, 32, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b'')
+rows = b''.join(b'\0' + b''.join(bytes(worm_pixel(x, y)) for x in range(128)) for y in range(64))
+png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 128, 64, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b'')
 (ROOT / f'assets/{NS}/textures/entity/root_worm.png').write_bytes(png)
+
+# Fuller grass clumps use vanilla-style unshaded, biome-tinted crossed planes plus a shorter inner tuft.
+def fluffy_grass_model(height):
+    planes = []
+    for axis in ['z', 'x']:
+        faces = ['north', 'south'] if axis == 'z' else ['west', 'east']
+        lo = [0.8, 0, 8] if axis == 'z' else [8, 0, 0.8]
+        hi = [15.2, height, 8] if axis == 'z' else [8, height, 15.2]
+        planes.append({'from': lo, 'to': hi, 'rotation': {'origin': [8, 8, 8], 'axis': 'y', 'angle': 45, 'rescale': True},
+                       'shade': False, 'faces': {face: {'uv': [0, 0, 16, 16], 'texture': '#cross', 'tintindex': 0} for face in faces}})
+        inner_lo = [2, 0, 8] if axis == 'z' else [8, 0, 2]
+        inner_hi = [14, height * 0.82, 8] if axis == 'z' else [8, height * 0.82, 14]
+        planes.append({'from': inner_lo, 'to': inner_hi, 'shade': False,
+                       'faces': {face: {'uv': [0, 0, 16, 16], 'texture': '#cross', 'tintindex': 0} for face in faces}})
+    return {'ambientocclusion': False, 'render_type': 'minecraft:cutout',
+            'textures': {'cross': f'{NS}:block/dark_grass', 'particle': '#cross'}, 'elements': planes}
+
+write(f'assets/{NS}/models/block/dark_grass.json', fluffy_grass_model(16))
+write(f'assets/{NS}/models/block/dark_grass_short.json', fluffy_grass_model(13.5))
+write(f'assets/{NS}/blockstates/dark_grass.json', {'variants': {'': [
+    {'model': f'{NS}:block/dark_grass', 'weight': 3}, {'model': f'{NS}:block/dark_grass_short', 'weight': 1}
+]}})

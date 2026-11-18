@@ -22,7 +22,8 @@ public final class RootThorns {
                 var existing = level.getBlockState(pos);
                 if (!existing.isAir() && !existing.canBeReplaced()) continue;
                 var thorn = FantasyBiomes.THORN.get().defaultBlockState()
-                        .setValue(ThornBlock.FACING, face).setValue(ThornBlock.AXIS, face.getAxis());
+                        .setValue(ThornBlock.FACING, face).setValue(ThornBlock.AXIS, face.getAxis())
+                        .setValue(ThornBlock.TWIST, random.nextInt(4));
                 if (thorn.canSurvive(level, pos)) { level.setBlock(pos, thorn, 2); placed = true; }
             }
         }
