@@ -8,6 +8,8 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public final class RootlandsConfig {
     public static final ModConfigSpec SPEC;
     public static final ModConfigSpec.BooleanValue ENABLED;
+    public static final int DEFAULT_BIOME_WEIGHT = 600, DEFAULT_BIOME_SIZE = 4096;
+    public static final ModConfigSpec.IntValue GENERATION_DEFAULTS_REVISION;
     public static final ModConfigSpec.IntValue BIOME_WEIGHT, BIOME_SIZE, EDGE_BLEND, TREE_DENSITY, ROOT_DENSITY, THORN_DENSITY, GIANT_THORN_DENSITY, GRASS_DENSITY;
     public static final ModConfigSpec.BooleanValue GENTLE_SHORES;
     public static final ModConfigSpec.IntValue SHORE_WIDTH;
@@ -23,11 +25,13 @@ public final class RootlandsConfig {
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
         builder.push("rootlands");
+        GENERATION_DEFAULTS_REVISION = builder.comment("Internal migration marker for untouched legacy generation defaults.")
+                .defineInRange("generationDefaultsRevision", 0, 0, 1);
         ENABLED = builder.comment("Select Rootlands during new world generation.").define("enabled", true);
         BIOME_WEIGHT = builder.comment("Relative coverage of eligible temperate forests. Higher values cover more woodland; 0 disables placement. Not a world percentage.")
-                .defineInRange("biomeWeight", 35, 0, 1000);
+                .defineInRange("biomeWeight", DEFAULT_BIOME_WEIGHT, 0, 1000);
         BIOME_SIZE = builder.comment("Horizontal scale of broad Rootlands areas in blocks; climate and rivers can limit actual biome dimensions.")
-                .defineInRange("biomeSize", 2048, 256, 8192);
+                .defineInRange("biomeSize", DEFAULT_BIOME_SIZE, 256, 8192);
         EDGE_BLEND = builder.comment("Distance in blocks over which custom decoration tapers near other biomes; 0 disables tapering.")
                 .defineInRange("edgeBlendWidth", 24, 0, 96);
         GENTLE_SHORES = builder.comment("Create dry sandy banks and shallow seabeds near Rootlands after caves, before vegetation. Preserve vanilla water height and existing land/water coverage.")
@@ -77,6 +81,17 @@ public final class RootlandsConfig {
                         () -> "minecraft:torch", value -> value instanceof String id && ResourceLocation.tryParse(id) != null);
         builder.pop();
         SPEC = builder.build();
+    }
+
+    /** Upgrade only the exact 0.5.x default pair, once. Player-tuned sizes/weights are retained. */
+    public static boolean migrateLegacyGenerationDefaults() {
+        if (GENERATION_DEFAULTS_REVISION.get() != 0) return false;
+        if (BIOME_WEIGHT.get() == 35 && BIOME_SIZE.get() == 2048) {
+            BIOME_WEIGHT.set(DEFAULT_BIOME_WEIGHT);
+            BIOME_SIZE.set(DEFAULT_BIOME_SIZE);
+        }
+        GENERATION_DEFAULTS_REVISION.set(1);
+        return true;
     }
 
     private RootlandsConfig() {}

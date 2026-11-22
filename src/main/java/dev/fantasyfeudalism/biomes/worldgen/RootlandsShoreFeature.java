@@ -77,8 +77,9 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
             if (originalTop < sea - 1 && !region.getFluidState(new BlockPos(x, sea - 1, z)).is(FluidTags.WATER)) continue;
             var biome = generator.getBiomeSource().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(sea), QuartPos.fromBlock(z), random.sampler());
             boolean stony = biome.is(net.minecraft.world.level.biome.Biomes.STONY_SHORE);
-            boolean sandy = biome.is(net.minecraft.tags.BiomeTags.IS_BEACH) && !stony;
-            changed |= reshapeColumn(region, x, z, originalTop, profile.targetHeight(x, z, originalTop), sea, sandy, stony);
+            int target = profile.targetHeight(x, z, originalTop);
+            boolean sandy = !stony && (biome.is(net.minecraft.tags.BiomeTags.IS_BEACH) || profile.beachBand(x, z, target));
+            changed |= reshapeColumn(region, x, z, originalTop, target, sea, sandy, stony);
         }
         return changed;
     }
@@ -95,14 +96,14 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
 
     /** Atomically validate a column before changing natural ground; preserve foreign blocks and block entities. */
     public static boolean reshapeColumn(WorldGenLevel level, int x, int z, int originalTop, int targetTop, int sea) {
-        return reshapeColumn(level, x, z, originalTop, targetTop, sea, false, false);
+        return reshapeColumn(level, x, z, originalTop, targetTop, sea, targetTop >= sea - 2 && targetTop <= sea + 2, false);
     }
 
-    private static boolean reshapeColumn(WorldGenLevel level, int x, int z, int originalTop, int targetTop, int sea, boolean sandy, boolean stony) {
+    public static boolean reshapeColumn(WorldGenLevel level, int x, int z, int originalTop, int targetTop, int sea, boolean sandy, boolean stony) {
         int waterTop = sea - 1;
         // Reject any request to inundate existing land or make an island from an existing water column.
         if ((originalTop >= waterTop && targetTop < waterTop) || (originalTop < waterTop && targetTop >= waterTop)) return false;
-        boolean beach = !stony && (sandy || (targetTop >= waterTop - 1 && targetTop <= sea + 2));
+        boolean beach = !stony && sandy;
         if (targetTop == originalTop && (!beach || level.getBlockState(new BlockPos(x, targetTop, z)).is(Blocks.SAND))) return false;
         if (targetTop <= level.getMinBuildHeight() || targetTop >= level.getMaxBuildHeight() - 1) return false;
         if (!level.ensureCanWrite(new BlockPos(x, targetTop, z))) return false;

@@ -39,6 +39,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.event.entity.RegisterSpawnPlacementsEvent;
@@ -111,6 +112,11 @@ public final class FantasyBiomes {
 
     public FantasyBiomes(IEventBus bus, ModContainer container) {
         container.registerConfig(ModConfig.Type.COMMON, RootlandsConfig.SPEC);
+        bus.addListener((ModConfigEvent.Loading event) -> {
+            if (event.getConfig().getSpec() == RootlandsConfig.SPEC && RootlandsConfig.migrateLegacyGenerationDefaults()) {
+                event.getConfig().getLoadedConfig().save();
+            }
+        });
         BLOCKS.register(bus);
         ITEMS.register(bus);
         FEATURES.register(bus);

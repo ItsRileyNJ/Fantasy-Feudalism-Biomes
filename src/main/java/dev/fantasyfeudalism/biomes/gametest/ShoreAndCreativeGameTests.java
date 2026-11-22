@@ -43,6 +43,32 @@ public final class ShoreAndCreativeGameTests {
     }
 
     @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
+    public static void lowFlatCoastGetsNarrowSandTrimInsteadOfAnInlandSandSheet(GameTestHelper helper) {
+        int sand = 0;
+        for (int chunkX = -64; chunkX < 0; chunkX += 16) {
+            var profile = new ShorelineProfile(chunkX, 0, 63, 64, (x, z) -> new ShorelineProfile.Sample(x >= 0, x < 0));
+            for (int x = chunkX; x < chunkX + 16; x++) {
+                int target = profile.targetHeight(x, 8, 66);
+                if (profile.beachBand(x, 8, target)) sand++;
+                if (x <= -16) {
+                    helper.assertTrue(!profile.beachBand(x, 8, target), "Low inland terrain must not become beach just because its height is near sea level");
+                    helper.assertTrue(target >= 64, "The terrain must rise inland instead of remaining a sea-level shelf");
+                }
+            }
+        }
+        helper.assertTrue(sand > 0 && sand <= 8, "Added sand must stay in a narrow water-edge trim, got " + sand + " blocks");
+        var inland = new ShorelineProfile(-32, 0, 63, 64, (x, z) -> new ShorelineProfile.Sample(x >= 0, x < 0));
+        int offset = helper.absolutePos(new BlockPos(8, 0, 8)).getY();
+        for (int y = 2; y <= 12; y++) helper.setBlock(8, y, 8, Blocks.STONE);
+        var pos = helper.absolutePos(new BlockPos(8, 0, 8));
+        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(helper.getLevel(), pos.getX(), pos.getZ(), offset + 12,
+                offset + 8, offset + 8, inland.beachBand(-24, 8, 63), false), "Inland low bank should still be gradeable");
+        helper.assertBlockPresent(Blocks.GRASS_BLOCK, new BlockPos(8, 8, 8));
+        helper.assertBlockPresent(Blocks.DIRT, new BlockPos(8, 7, 8));
+        helper.succeed();
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
     public static void narrowRiverGetsSlopedBanks(GameTestHelper helper) {
         ShorelineProfile.Sampler river = (x, z) -> new ShorelineProfile.Sample(Math.abs(x) < 4, Math.abs(x) >= 4);
         var west = new ShorelineProfile(-16, 0, 63, 64, river);
@@ -63,6 +89,9 @@ public final class ShoreAndCreativeGameTests {
         for (int z = 0; z <= 16; z++) {
             helper.assertTrue(Math.abs(west.strength(0, z) - east.strength(0, z)) < 1e-12,
                     "Adjacent chunk profiles must have identical shared edge values");
+            helper.assertTrue(Math.abs(west.signedDistance(0, z) - east.signedDistance(0, z)) < 1e-12,
+                    "The sampled shoreline must also agree at a shared chunk edge");
+            helper.assertTrue(west.beachBand(0, z, 63) == east.beachBand(0, z, 63), "Added sand must not stop or widen at a chunk edge");
         }
         var distant = new ShorelineProfile(0, 0, 63, 64, (x, z) -> new ShorelineProfile.Sample(x >= 0, false));
         helper.assertTrue(distant.strength(1, 8) == 0, "Unrelated shores far from Rootlands must stay unchanged");

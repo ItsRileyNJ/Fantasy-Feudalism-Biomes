@@ -103,12 +103,12 @@ public final class RootlandsTerrainGameTests {
                 helper.assertTrue(!selected.is(FantasyBiomes.ROOTLANDS), "Large Biomes water/other biomes must not become Rootlands");
                 continue;
             }
-            for (int dx = -8; dx <= 8 && core; dx++) for (int dz = -8; dz <= 8 && core; dz++) {
+            for (int dx = -4; dx <= 4 && core; dx++) for (int dz = -4; dz <= 4 && core; dz++) {
                 if (!original.getNoiseBiome(x + dx, 20, z + dz, random.sampler()).is(net.minecraft.world.level.biome.Biomes.DARK_FOREST)) core = false;
             }
             if (selected.is(FantasyBiomes.ROOTLANDS)) {
                 placed++;
-                helper.assertTrue(core, "Rootlands must preserve the 32-block forest rim in the actual Large Biomes layout, quart=" + x + "," + z);
+                helper.assertTrue(core, "Rootlands must preserve the 16-block forest rim in the actual Large Biomes layout, quart=" + x + "," + z);
             }
             if (core && area.compute(new net.minecraft.world.level.levelgen.DensityFunction.SinglePointContext(x * 4, 80, z * 4)) <= coverage) {
                 eligible++;
@@ -249,7 +249,10 @@ public final class RootlandsTerrainGameTests {
     @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
     public static void biomeSizeProducesBroaderContinuousAreas(GameTestHelper helper) {
         int previous = RootlandsConfig.BIOME_SIZE.get();
+        int weight = RootlandsConfig.BIOME_WEIGHT.get();
         try {
+            // Keep both selected and unselected samples in this scale-only experiment.
+            RootlandsConfig.BIOME_WEIGHT.set(35);
             var registries = helper.getLevel().registryAccess();
             var settings = registries.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD);
             var forest = registries.registryOrThrow(Registries.BIOME).getHolderOrThrow(net.minecraft.world.level.biome.Biomes.FOREST);
@@ -284,7 +287,10 @@ public final class RootlandsTerrainGameTests {
                 System.out.println("Rootlands size seed=" + seed + " boundary crossings small=" + changes[0] + " broad=" + changes[1]);
                 helper.assertTrue(changes[1] < changes[0] / 2, "Larger scale must create broader continuous regions, not just change frequency");
             }
-        } finally { RootlandsConfig.BIOME_SIZE.set(previous); }
+        } finally {
+            RootlandsConfig.BIOME_SIZE.set(previous);
+            RootlandsConfig.BIOME_WEIGHT.set(weight);
+        }
         helper.succeed();
     }
 

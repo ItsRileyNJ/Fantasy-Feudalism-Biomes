@@ -23,6 +23,7 @@ import net.minecraft.world.level.levelgen.synth.NormalNoise;
 /** Broad, smoothly bounded woodland regions. This mask selects biomes; it never changes terrain density. */
 public final class RootlandsIntegration {
     public static final ResourceKey<NormalNoise.NoiseParameters> AREA_NOISE = ResourceKey.create(Registries.NOISE, FantasyBiomes.id("rootlands_area"));
+    public static final int FOREST_BUFFER = 16;
     public static final List<ResourceKey<Biome>> TARGETS = List.of(Biomes.DARK_FOREST);
 
     public static void register() {
@@ -35,7 +36,7 @@ public final class RootlandsIntegration {
             var settings = registries.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD);
             consumer.accept(FantasyBiomes.id("rootlands"), BiomeInjector.builder(Level.OVERWORLD)
                     .replacePartially(HolderSet.direct(TARGETS.stream().map(biomes::getHolderOrThrow).toList()),
-                            biomes.getHolderOrThrow(FantasyBiomes.ROOTLANDS), areaParameters(registries).densityFunctionMin(Holder.direct(new DarkForestInterior(preset, settings, 32)), 1.0)));
+                            biomes.getHolderOrThrow(FantasyBiomes.ROOTLANDS), areaParameters(registries).densityFunctionMin(Holder.direct(new DarkForestInterior(preset, settings, FOREST_BUFFER)), 1.0)));
         });
     }
 

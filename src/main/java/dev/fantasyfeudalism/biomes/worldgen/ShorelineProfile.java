@@ -9,13 +9,15 @@ public final class ShorelineProfile {
     public static final int STEP = 4;
     public record Sample(boolean wet, boolean rootlands) {}
     @FunctionalInterface public interface Sampler { Sample sample(int x, int z); }
-    private final int chunkX, chunkZ, seaLevel;
-    private final double[][] weights = new double[5][5];
+    private final int chunkX, chunkZ, seaLevel, width;
+    private final double[][] distances = new double[5][5];
+    private final double[][] influences = new double[5][5];
 
     public ShorelineProfile(int chunkX, int chunkZ, int seaLevel, int width, Sampler sampler) {
         this.chunkX = chunkX;
         this.chunkZ = chunkZ;
         this.seaLevel = seaLevel;
+        this.width = width;
         int margin = sampleMargin(width);
         int firstX = chunkX - margin;
         int firstZ = chunkZ - margin;
@@ -37,33 +39,50 @@ public final class ShorelineProfile {
                 if ((terrain[x][z].wet()) != wet) opposite = Math.min(opposite, distance);
                 if (terrain[x][z].rootlands()) root = Math.min(root, distance);
             }
-            double shore = 1.0 - smooth(Math.sqrt(opposite) / width);
+            // The boundary lies between opposite grid samples. Signed distances interpolate through it,
+            // avoiding a four-block-wide constant weight on both sides of every shoreline.
+            double distance = Math.min(width + STEP, Math.max(0, Math.sqrt(opposite) - STEP / 2.0));
+            distances[cx][cz] = wet ? -distance : distance;
             // Extend through neighboring beach/river biomes, then fade, rather than creating a wall at their border.
             // Keep full grading through the preserved dark-forest rim, then fade into unrelated shores.
             double influence = 1.0 - smooth((Math.sqrt(root) - width) / width);
-            weights[cx][cz] = shore * influence;
+            influences[cx][cz] = influence;
         }
     }
 
     public double strength(int x, int z) {
+        // A linear approach to the water keeps rising inland instead of easing into a broad sea-level pad.
+        return Math.max(0, 1 - Math.abs(signedDistance(x, z)) / width) * interpolate(influences, x, z);
+    }
+
+    public double signedDistance(int x, int z) { return interpolate(distances, x, z); }
+
+    /** Sand is a narrow shoreline trim, independent of the much wider terrain blending band. */
+    public boolean beachBand(int x, int z, int top) {
+        return Math.abs(signedDistance(x, z)) <= 6 && top >= seaLevel - 2 && top <= seaLevel + 2
+                && interpolate(influences, x, z) > 0;
+    }
+
+    private double interpolate(double[][] grid, int x, int z) {
         double gx = (x - chunkX) / (double) STEP;
         double gz = (z - chunkZ) / (double) STEP;
         int ix = Math.clamp((int) Math.floor(gx), 0, 3);
         int iz = Math.clamp((int) Math.floor(gz), 0, 3);
         double tx = Math.clamp(gx - ix, 0, 1);
         double tz = Math.clamp(gz - iz, 0, 1);
-        double north = weights[ix][iz] * (1 - tx) + weights[ix + 1][iz] * tx;
-        double south = weights[ix][iz + 1] * (1 - tx) + weights[ix + 1][iz + 1] * tx;
+        double north = grid[ix][iz] * (1 - tx) + grid[ix + 1][iz] * tx;
+        double south = grid[ix][iz + 1] * (1 - tx) + grid[ix + 1][iz + 1] * tx;
         return north * (1 - tz) + south * tz;
     }
 
     public int targetHeight(int x, int z, int originalTop) {
-        double amount = strength(x, z);
         // seaLevel is the first air block: vanilla water ends at seaLevel - 1.
         // Land approaches a dry bank; an existing bed approaches a shallow submerged shelf.
         // Never turn dry forest into a river or lift a wet bed above its water surface.
         boolean land = originalTop >= seaLevel - 1;
-        int anchor = land ? seaLevel : seaLevel - 3;
+        double distance = Math.max(0, land ? signedDistance(x, z) : -signedDistance(x, z));
+        double amount = Math.max(0, 1 - distance / width) * interpolate(influences, x, z);
+        int anchor = land ? seaLevel : seaLevel - 2;
         int target = (int) Math.round(originalTop * (1 - amount) + anchor * amount);
         return land ? Math.min(originalTop, Math.max(seaLevel - 1, target))
                 : Math.max(originalTop, Math.min(seaLevel - 2, target));
