@@ -3,6 +3,7 @@ package dev.fantasyfeudalism.biomes.worldgen;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.fantasyfeudalism.biomes.mixin.DensityFunctionWrapperAccessor;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.Holder;
 import net.minecraft.util.KeyDispatchDataCodec;
@@ -31,16 +32,16 @@ public final class DarkForestInterior implements DensityFunction.SimpleFunction 
     private final ConcurrentHashMap<Long, Boolean> vanillaForest = new ConcurrentHashMap<>();
 
     public DarkForestInterior(Holder<MultiNoiseBiomeSourceParameterList> preset, Holder<NoiseGeneratorSettings> settings, int buffer) {
-        this(preset, settings, buffer, settings.value().noiseRouter());
+        this(preset, settings, buffer, settings.value().noiseRouter(), null);
     }
 
-    private DarkForestInterior(Holder<MultiNoiseBiomeSourceParameterList> preset, Holder<NoiseGeneratorSettings> settings, int buffer, NoiseRouter router) {
+    private DarkForestInterior(Holder<MultiNoiseBiomeSourceParameterList> preset, Holder<NoiseGeneratorSettings> settings, int buffer, NoiseRouter router, Climate.Sampler worldSampler) {
         this.preset = preset;
         this.settings = settings;
         this.buffer = buffer;
         this.router = router;
         this.source = MultiNoiseBiomeSource.createFromPreset(preset);
-        this.sampler = new Climate.Sampler(router.temperature(), router.vegetation(), router.continents(), router.erosion(), router.depth(), router.ridges(), settings.value().spawnTarget());
+        this.sampler = worldSampler != null ? worldSampler : new Climate.Sampler(router.temperature(), router.vegetation(), router.continents(), router.erosion(), router.depth(), router.ridges(), settings.value().spawnTarget());
     }
 
     @Override public double compute(FunctionContext context) {
@@ -60,7 +61,13 @@ public final class DarkForestInterior implements DensityFunction.SimpleFunction 
         }) ? 1.0 : 0.0;
     }
 
-    @Override public DensityFunction mapAll(Visitor visitor) { return visitor.apply(new DarkForestInterior(preset, settings, buffer, router.mapAll(visitor))); }
+    @Override public DensityFunction mapAll(Visitor visitor) {
+        // The serialized router is a fallback. Injector binding must use the active generator's climate,
+        // otherwise normal-world noise keys incorrectly filter Large Biomes and amplified forests.
+        Climate.Sampler worldSampler = visitor instanceof DensityFunctionWrapperAccessor wrapper
+                ? wrapper.fantasyBiomes$getRandomState().sampler() : null;
+        return visitor.apply(new DarkForestInterior(preset, settings, buffer, router.mapAll(visitor), worldSampler));
+    }
     @Override public double minValue() { return 0; }
     @Override public double maxValue() { return 1; }
     @Override public KeyDispatchDataCodec<DarkForestInterior> codec() { return KeyDispatchDataCodec.of(CODEC); }

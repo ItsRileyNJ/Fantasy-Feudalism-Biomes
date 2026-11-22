@@ -31,6 +31,7 @@ public final class RootlandsIntegration {
             var biomes = registries.registryOrThrow(Registries.BIOME);
             var preset = registries.registryOrThrow(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST)
                     .getHolderOrThrow(ResourceKey.create(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST, ResourceLocation.withDefaultNamespace("overworld")));
+            // Codec fallback only: DarkForestInterior binds the active world's sampler during injection.
             var settings = registries.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD);
             consumer.accept(FantasyBiomes.id("rootlands"), BiomeInjector.builder(Level.OVERWORLD)
                     .replacePartially(HolderSet.direct(TARGETS.stream().map(biomes::getHolderOrThrow).toList()),

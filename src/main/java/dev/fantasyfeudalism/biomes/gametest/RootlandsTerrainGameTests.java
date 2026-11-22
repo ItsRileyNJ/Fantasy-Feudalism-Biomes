@@ -75,6 +75,75 @@ public final class RootlandsTerrainGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "test_arena", timeoutTicks = 300, skyAccess = true)
+    public static void largeBiomesUsesItsOwnForestInteriorForRootlands(GameTestHelper helper) {
+        var registries = helper.getLevel().registryAccess();
+        var preset = registries.registryOrThrow(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST)
+                .getHolderOrThrow(ResourceKey.create(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST, ResourceLocation.withDefaultNamespace("overworld")));
+        var settings = registries.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.LARGE_BIOMES);
+        long seed = 2754680807422324057L;
+        var original = MultiNoiseBiomeSource.createFromPreset(preset);
+        var generator = new NoiseBasedChunkGenerator(MultiNoiseBiomeSource.createFromPreset(preset), settings);
+        var dimensions = new MappedRegistry<LevelStem>(Registries.LEVEL_STEM, Lifecycle.stable());
+        dimensions.register(LevelStem.OVERWORLD, new LevelStem(helper.getLevel().dimensionTypeRegistration(), generator), RegistrationInfo.BUILT_IN);
+        dimensions.freeze();
+        BiomeInjectorManager.applyBiomeInjectors(registries, dimensions, seed);
+        var random = RandomState.create(settings.value(), registries.lookupOrThrow(Registries.NOISE), seed);
+        var noiseHelper = new dev.worldgen.lithostitched.api.worldgen.util.DensityFunctionWrapper(seed, false, random,
+                ((dev.worldgen.lithostitched.mixin.common.RandomStateAccessor) (Object) random).getRandom());
+        var area = net.minecraft.world.level.levelgen.DensityFunctions.noise(registries.registryOrThrow(Registries.NOISE)
+                .getHolderOrThrow(dev.fantasyfeudalism.biomes.worldgen.RootlandsIntegration.AREA_NOISE), 1024.0 / RootlandsConfig.BIOME_SIZE.get(), 0).mapAll(noiseHelper);
+        double coverage = Math.clamp(0.2 * Math.log(RootlandsConfig.BIOME_WEIGHT.get() / 100.0), -0.95, 0.95);
+        int eligible = 0, placed = 0;
+        BlockPos forest = null;
+        for (int x = -1024; x <= 1024; x += 16) for (int z = -1024; z <= 1024; z += 16) {
+            var selected = generator.getBiomeSource().getNoiseBiome(x, 20, z, random.sampler());
+            boolean core = original.getNoiseBiome(x, 20, z, random.sampler()).is(net.minecraft.world.level.biome.Biomes.DARK_FOREST);
+            if (!core) {
+                helper.assertTrue(!selected.is(FantasyBiomes.ROOTLANDS), "Large Biomes water/other biomes must not become Rootlands");
+                continue;
+            }
+            for (int dx = -8; dx <= 8 && core; dx++) for (int dz = -8; dz <= 8 && core; dz++) {
+                if (!original.getNoiseBiome(x + dx, 20, z + dz, random.sampler()).is(net.minecraft.world.level.biome.Biomes.DARK_FOREST)) core = false;
+            }
+            if (selected.is(FantasyBiomes.ROOTLANDS)) {
+                placed++;
+                helper.assertTrue(core, "Rootlands must preserve the 32-block forest rim in the actual Large Biomes layout, quart=" + x + "," + z);
+            }
+            if (core && area.compute(new net.minecraft.world.level.levelgen.DensityFunction.SinglePointContext(x * 4, 80, z * 4)) <= coverage) {
+                eligible++;
+                if (forest == null && area.compute(new net.minecraft.world.level.levelgen.DensityFunction.SinglePointContext(x * 4, 80, z * 4)) < coverage - 0.05) {
+                    int surface = generator.getBaseHeight(x * 4 + 8, z * 4 + 8, Heightmap.Types.OCEAN_FLOOR_WG, LevelHeightAccessor.create(-64, 384), random);
+                    if (surface >= generator.getSeaLevel() + 8 && generator.getBiomeSource().getNoiseBiome(x + 2, surface >> 2, z + 2, random.sampler()).is(FantasyBiomes.ROOTLANDS)) {
+                        forest = new BlockPos(x * 4, surface, z * 4);
+                    }
+                }
+                helper.assertTrue(selected.is(FantasyBiomes.ROOTLANDS), "Eligible Large Biomes forest must not be filtered using the normal world's forest map, quart=" + x + "," + z);
+            }
+        }
+        helper.assertTrue(eligible > 0 && placed > 0, "Need eligible Large Biomes forest and Rootlands coverage");
+        helper.assertTrue(forest != null, "Need a dry Rootlands interior, away from its selection boundary, for the placement regression");
+        boolean shores = RootlandsConfig.GENTLE_SHORES.get();
+        try {
+            var generated = CoastGenerationGameTests.generate(helper, generator, random, seed, new ChunkPos(forest), true);
+            var context = new net.minecraft.world.level.levelgen.feature.FeaturePlaceContext<>(java.util.Optional.empty(),
+                    generated.region(), generator, net.minecraft.util.RandomSource.create(25), new ChunkPos(forest).getWorldPosition(),
+                    net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.INSTANCE);
+            int rootSoils = 0, grass = 0;
+            for (int dx = 0; dx < 16; dx++) for (int dz = 0; dz < 16; dz++) {
+                var floor = dev.fantasyfeudalism.biomes.worldgen.RootlandsScatterFeature.ground(generated.region(), new ChunkPos(forest).getMinBlockX() + dx, new ChunkPos(forest).getMinBlockZ() + dz);
+                if (floor != null) {
+                    grass++;
+                    if (generated.region().getBiome(floor).is(FantasyBiomes.ROOTLANDS)) rootSoils++;
+                }
+            }
+            System.out.println("Large Biomes root fixture=" + new ChunkPos(forest) + " dirtColumns=" + grass + " RootlandsDirt=" + rootSoils);
+            helper.assertTrue(FantasyBiomes.EXPOSED_ROOTS.get().place(context), "An actual Large Biomes Rootlands chunk must generate roots through its biome-filtered feature");
+        } finally { RootlandsConfig.GENTLE_SHORES.set(shores); }
+        System.out.println("Large Biomes forest eligibility=" + eligible + " Rootlands=" + placed + " rootFeatureChunk=" + new ChunkPos(forest));
+        helper.succeed();
+    }
+
     @GameTest(template = "test_arena", timeoutTicks = 200, skyAccess = true)
     public static void injectionPreservesVanillaRiversOceansAndBeaches(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
