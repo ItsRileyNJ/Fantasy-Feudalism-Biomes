@@ -35,7 +35,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class SurfaceOrderingGameTests {
     @GameTest(template = "test_arena", timeoutTicks = 200, skyAccess = true)
-    public static void productionSurfaceHookGradesBeforeTreesMushroomsAndGrass(GameTestHelper helper) {
+    public static void productionCarverHookGradesBeforeTreesMushroomsAndGrass(GameTestHelper helper) {
         boolean enabled = RootlandsConfig.GENTLE_SHORES.get();
         try {
             RootlandsConfig.GENTLE_SHORES.set(true);
@@ -56,8 +56,11 @@ public final class SurfaceOrderingGameTests {
             int[] before = new int[256];
             for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) before[x * 16 + z] = chunk.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z);
             var region = new NoiseSurfaceTestRegion(helper.getLevel(), chunk, generator, random, 12345);
-            // This is the exact runtime entry point, including the required surface mixin, not the testing overload.
             generator.buildSurface(region, structures, random, chunk);
+            chunk.setPersistedStatus(ChunkStatus.SURFACE);
+            // Exact runtime entry point: caves finish before shore grading; neighboring FEATURES wait for it.
+            generator.applyCarvers(region, 12345L, random, region.getBiomeManager(), structures, chunk,
+                    net.minecraft.world.level.levelgen.GenerationStep.Carving.AIR);
             int lowered = 0, decorated = 0;
             for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
                 int top = chunk.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z);
@@ -76,7 +79,7 @@ public final class SurfaceOrderingGameTests {
                 helper.assertTrue(top < before[x * 16 + z] - 3, "Decoration must not sit on an old-height stone pillar");
                 decorated++;
             }
-            helper.assertTrue(lowered > 0, "The actual surface hook must grade coastal terrain");
+            helper.assertTrue(lowered > 0, "The actual carver hook must grade coastal terrain");
             helper.assertTrue(decorated == 3, "Need lowered dry land for a tree, mushroom and grass regression");
             int[] decoratedHeights = new int[256];
             for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) decoratedHeights[x * 16 + z] = chunk.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z);

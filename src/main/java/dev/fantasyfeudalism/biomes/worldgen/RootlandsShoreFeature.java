@@ -23,7 +23,7 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 
-/** Shore grading runs at SURFACE, before any neighboring chunk can decorate. The old feature ID is a no-op. */
+/** Shore grading finishes CARVERS, before any neighboring chunk can decorate. The old feature ID is a no-op. */
 public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguration> {
     private static final Map<RandomState, ConcurrentHashMap<Long, ShorelineProfile.Sample>> CACHE =
             Collections.synchronizedMap(new WeakHashMap<>());
@@ -35,7 +35,7 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
     /** Compatibility for old data-pack references. Terrain must never be edited during FEATURES. */
     @Override public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) { return false; }
 
-    public static boolean gradeSurface(WorldGenLevel region, NoiseBasedChunkGenerator generator, RandomState random, ChunkAccess chunk) {
+    public static boolean gradeAfterCarvers(WorldGenLevel region, NoiseBasedChunkGenerator generator, RandomState random, ChunkAccess chunk) {
         if (!RootlandsConfig.GENTLE_SHORES.get() || !region.getLevel().dimension().equals(net.minecraft.world.level.Level.OVERWORLD)) return false;
         int sea = generator.getSeaLevel();
         int chunkX = chunk.getPos().getMinBlockX();
@@ -69,11 +69,16 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
         for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
             originalHeights[x * 16 + z] = chunk.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z);
         }
-        // SURFACE owns the chunk, before decoration. Snapshot original noise heights, not vegetation heightmaps.
+        // CARVERS still owns the chunk before decoration. Caves cannot subsequently drain newly graded shores.
         for (int x = chunkX; x < chunkX + 16; x++) for (int z = chunkZ; z < chunkZ + 16; z++) {
             if (profile.strength(x, z) <= 0) continue;
             int originalTop = originalHeights[(x - chunkX) * 16 + z - chunkZ];
-            changed |= reshapeColumn(region, x, z, originalTop, profile.targetHeight(x, z, originalTop), sea);
+            // Do not flood dry depressions or underground caves merely because they lie below sea level.
+            if (originalTop < sea - 1 && !region.getFluidState(new BlockPos(x, sea - 1, z)).is(FluidTags.WATER)) continue;
+            var biome = generator.getBiomeSource().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(sea), QuartPos.fromBlock(z), random.sampler());
+            boolean stony = biome.is(net.minecraft.world.level.biome.Biomes.STONY_SHORE);
+            boolean sandy = biome.is(net.minecraft.tags.BiomeTags.IS_BEACH) && !stony;
+            changed |= reshapeColumn(region, x, z, originalTop, profile.targetHeight(x, z, originalTop), sea, sandy, stony);
         }
         return changed;
     }
@@ -90,7 +95,16 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
 
     /** Atomically validate a column before changing natural ground; preserve foreign blocks and block entities. */
     public static boolean reshapeColumn(WorldGenLevel level, int x, int z, int originalTop, int targetTop, int sea) {
-        if (targetTop == originalTop || targetTop <= level.getMinBuildHeight() || targetTop >= level.getMaxBuildHeight() - 1) return false;
+        return reshapeColumn(level, x, z, originalTop, targetTop, sea, false, false);
+    }
+
+    private static boolean reshapeColumn(WorldGenLevel level, int x, int z, int originalTop, int targetTop, int sea, boolean sandy, boolean stony) {
+        int waterTop = sea - 1;
+        // Reject any request to inundate existing land or make an island from an existing water column.
+        if ((originalTop >= waterTop && targetTop < waterTop) || (originalTop < waterTop && targetTop >= waterTop)) return false;
+        boolean beach = !stony && (sandy || (targetTop >= waterTop - 1 && targetTop <= sea + 2));
+        if (targetTop == originalTop && (!beach || level.getBlockState(new BlockPos(x, targetTop, z)).is(Blocks.SAND))) return false;
+        if (targetTop <= level.getMinBuildHeight() || targetTop >= level.getMaxBuildHeight() - 1) return false;
         if (!level.ensureCanWrite(new BlockPos(x, targetTop, z))) return false;
         int lower = Math.min(originalTop, targetTop);
         int upper = Math.max(originalTop, targetTop);
@@ -102,18 +116,19 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
         }
         if (targetTop < originalTop) {
             for (int y = originalTop; y > targetTop; y--) {
-                level.setBlock(new BlockPos(x, y, z), y <= sea ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+                level.setBlock(new BlockPos(x, y, z), y < sea ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
             }
         } else {
             for (int y = originalTop + 1; y <= targetTop; y++) level.setBlock(new BlockPos(x, y, z), Blocks.STONE.defaultBlockState(), 2);
         }
-        // A shallow gravel bed continues below the waterline; turf and dirt continue above it.
-        level.setBlock(new BlockPos(x, targetTop, z), (targetTop < sea ? Blocks.GRAVEL : Blocks.GRASS_BLOCK).defaultBlockState(), 2);
-        // Support the new cap even when a shallow cave crossed the old cliff; gravel must not collapse into it.
+        // Preserve beach materials and make a sandy intertidal strip on ordinary woodland banks.
+        BlockState cap = (stony ? Blocks.STONE : beach ? Blocks.SAND : targetTop < waterTop ? Blocks.GRAVEL : Blocks.GRASS_BLOCK).defaultBlockState();
+        level.setBlock(new BlockPos(x, targetTop, z), cap, 2);
+        // Three solid supporting blocks keep the cap above shallow caves, including sand/gravel.
         for (int y = targetTop - 1; y >= Math.max(targetTop - 3, level.getMinBuildHeight() + 1); y--) {
-            level.setBlock(new BlockPos(x, y, z), (targetTop < sea ? Blocks.STONE : Blocks.DIRT).defaultBlockState(), 2);
+            level.setBlock(new BlockPos(x, y, z), (beach ? (y == targetTop - 3 ? Blocks.SANDSTONE : Blocks.SAND) : targetTop < waterTop || stony ? Blocks.STONE : Blocks.DIRT).defaultBlockState(), 2);
         }
-        for (int y = targetTop + 1; y <= sea; y++) level.setBlock(new BlockPos(x, y, z), Blocks.WATER.defaultBlockState(), 2);
+        for (int y = targetTop + 1; y < sea; y++) level.setBlock(new BlockPos(x, y, z), Blocks.WATER.defaultBlockState(), 2);
         return true;
     }
 

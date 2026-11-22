@@ -76,6 +76,39 @@ public final class RootlandsTerrainGameTests {
     }
 
     @GameTest(template = "test_arena", timeoutTicks = 200, skyAccess = true)
+    public static void injectionPreservesVanillaRiversOceansAndBeaches(GameTestHelper helper) {
+        var registries = helper.getLevel().registryAccess();
+        var preset = registries.registryOrThrow(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST)
+                .getHolderOrThrow(ResourceKey.create(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST, ResourceLocation.withDefaultNamespace("overworld")));
+        var settings = registries.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD);
+        for (long seed : new long[]{12345, 2754680807422324057L}) {
+            var original = MultiNoiseBiomeSource.createFromPreset(preset);
+            var generator = new NoiseBasedChunkGenerator(MultiNoiseBiomeSource.createFromPreset(preset), settings);
+            var dimensions = new MappedRegistry<LevelStem>(Registries.LEVEL_STEM, Lifecycle.stable());
+            dimensions.register(LevelStem.OVERWORLD, new LevelStem(helper.getLevel().dimensionTypeRegistration(), generator), RegistrationInfo.BUILT_IN);
+            dimensions.freeze();
+            BiomeInjectorManager.applyBiomeInjectors(registries, dimensions, seed);
+            var sampler = RandomState.create(settings.value(), registries.lookupOrThrow(Registries.NOISE), seed).sampler();
+            int rivers = 0, beaches = 0, oceans = 0, roots = 0;
+            for (int x = -1024; x <= 1024; x += 8) for (int z = -1024; z <= 1024; z += 8) {
+                var before = original.getNoiseBiome(x, 16, z, sampler);
+                var after = generator.getBiomeSource().getNoiseBiome(x, 16, z, sampler);
+                boolean river = before.is(net.minecraft.tags.BiomeTags.IS_RIVER);
+                boolean beach = before.is(net.minecraft.tags.BiomeTags.IS_BEACH);
+                boolean ocean = before.is(net.minecraft.tags.BiomeTags.IS_OCEAN);
+                if (river) rivers++;
+                if (beach) beaches++;
+                if (ocean) oceans++;
+                if (after.is(FantasyBiomes.ROOTLANDS)) roots++;
+                if (river || beach || ocean) helper.assertTrue(before.equals(after), "Rootlands must never replace water/beach biomes, seed=" + seed + " quart=" + x + "," + z);
+            }
+            helper.assertTrue(rivers > 0 && beaches > 0 && oceans > 0 && roots > 0, "Need rivers, beaches, oceans and Rootlands samples, seed=" + seed);
+            System.out.println("Preserved biomes seed=" + seed + " rivers=" + rivers + " beaches=" + beaches + " oceans=" + oceans + " rootlands=" + roots);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 200, skyAccess = true)
     public static void shorelineGradesRealMinecraftNoiseTerrain(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
         var biomes = registries.registryOrThrow(Registries.BIOME);
@@ -136,7 +169,7 @@ public final class RootlandsTerrainGameTests {
                 graded++;
                 helper.assertTrue(!chunk.getBlockState(new BlockPos(x, target, z)).isAir(), "Graded column must have a solid cap");
                 if (target < original && target >= 63) helper.assertTrue(chunk.getBlockState(new BlockPos(x, target + 1, z)).isAir(), "Raised shore should taper down to the new cap");
-                if (target < 63) helper.assertTrue(chunk.getBlockState(new BlockPos(x, 63, z)).getFluidState().is(net.minecraft.tags.FluidTags.WATER), "Submerged shore must retain water to sea level");
+                if (target < 62) helper.assertTrue(chunk.getBlockState(new BlockPos(x, 62, z)).getFluidState().is(net.minecraft.tags.FluidTags.WATER), "Submerged shore must retain vanilla water height");
             }
         }
         helper.assertTrue(graded > 0, "Real noise-generated shoreline must actually be graded");

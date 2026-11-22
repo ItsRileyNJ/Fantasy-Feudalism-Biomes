@@ -59,7 +59,14 @@ public final class ShorelineProfile {
 
     public int targetHeight(int x, int z, int originalTop) {
         double amount = strength(x, z);
-        return (int) Math.round(originalTop * (1 - amount) + (seaLevel - 2) * amount);
+        // seaLevel is the first air block: vanilla water ends at seaLevel - 1.
+        // Land approaches a dry bank; an existing bed approaches a shallow submerged shelf.
+        // Never turn dry forest into a river or lift a wet bed above its water surface.
+        boolean land = originalTop >= seaLevel - 1;
+        int anchor = land ? seaLevel : seaLevel - 3;
+        int target = (int) Math.round(originalTop * (1 - amount) + anchor * amount);
+        return land ? Math.min(originalTop, Math.max(seaLevel - 1, target))
+                : Math.max(originalTop, Math.min(seaLevel - 2, target));
     }
 
     public static int sampleMargin(int width) { return ((width * 2 + 12 + STEP - 1) / STEP) * STEP; }

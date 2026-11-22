@@ -76,31 +76,46 @@ public final class ShoreAndCreativeGameTests {
         helper.setBlock(8, 5, 8, Blocks.AIR);
         BlockPos land = helper.absolutePos(new BlockPos(8, 0, 8));
         int offset = land.getY();
-        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(level, land.getX(), land.getZ(), offset + 20, offset + 6, offset + 8), "Land cliff should be lowered");
-        helper.assertBlockPresent(Blocks.GRAVEL, new BlockPos(8, 6, 8));
-        helper.assertBlockPresent(Blocks.WATER, new BlockPos(8, 8, 8));
+        helper.assertTrue(!RootlandsShoreFeature.reshapeColumn(level, land.getX(), land.getZ(), offset + 20, offset + 6, offset + 8), "Dry land must never be flooded into an artificial river");
+        helper.assertBlockPresent(Blocks.STONE, new BlockPos(8, 20, 8));
+        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(level, land.getX(), land.getZ(), offset + 20, offset + 8, offset + 8), "Land cliff should become a dry sandy bank");
+        helper.assertBlockPresent(Blocks.SAND, new BlockPos(8, 8, 8));
+        helper.assertBlockPresent(Blocks.SAND, new BlockPos(8, 7, 8));
+        helper.assertBlockPresent(Blocks.SANDSTONE, new BlockPos(8, 5, 8));
         helper.assertBlockPresent(Blocks.AIR, new BlockPos(8, 9, 8));
-        helper.assertBlockPresent(Blocks.STONE, new BlockPos(8, 3, 8));
-        helper.assertBlockPresent(Blocks.STONE, new BlockPos(8, 5, 8));
 
         helper.setBlock(12, 2, 8, Blocks.STONE);
-        for (int y = 3; y <= 8; y++) helper.setBlock(12, y, 8, Blocks.WATER);
+        for (int y = 3; y < 8; y++) helper.setBlock(12, y, 8, Blocks.WATER);
         BlockPos bed = helper.absolutePos(new BlockPos(12, 0, 8));
-        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(level, bed.getX(), bed.getZ(), offset + 2, offset + 6, offset + 8), "Underwater bed should rise toward shore");
-        helper.assertBlockPresent(Blocks.GRAVEL, new BlockPos(12, 6, 8));
+        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(level, bed.getX(), bed.getZ(), offset + 2, offset + 5, offset + 8), "Underwater bed should rise toward shore");
+        helper.assertBlockPresent(Blocks.GRAVEL, new BlockPos(12, 5, 8));
         helper.assertBlockPresent(Blocks.WATER, new BlockPos(12, 7, 8));
+        helper.assertBlockPresent(Blocks.AIR, new BlockPos(12, 8, 8));
+        helper.assertTrue(!RootlandsShoreFeature.reshapeColumn(level, bed.getX(), bed.getZ(), offset + 5, offset + 8, offset + 8), "A river bed must remain submerged");
 
         for (int y = 2; y <= 15; y++) helper.setBlock(20, y, 8, Blocks.STONE);
         helper.setBlock(20, 10, 8, Blocks.DARK_OAK_LOG);
         BlockPos protectedColumn = helper.absolutePos(new BlockPos(20, 0, 8));
-        helper.assertTrue(!RootlandsShoreFeature.reshapeColumn(level, protectedColumn.getX(), protectedColumn.getZ(), offset + 15, offset + 6, offset + 8), "A structure column must be rejected atomically");
+        helper.assertTrue(!RootlandsShoreFeature.reshapeColumn(level, protectedColumn.getX(), protectedColumn.getZ(), offset + 15, offset + 8, offset + 8), "A structure column must be rejected atomically");
         helper.assertBlockPresent(Blocks.DARK_OAK_LOG, new BlockPos(20, 10, 8));
         helper.assertBlockPresent(Blocks.STONE, new BlockPos(20, 15, 8));
         for (int y = 2; y <= 15; y++) helper.setBlock(24, y, 8, Blocks.STONE);
         helper.setBlock(24, 10, 8, Blocks.DARK_OAK_STAIRS.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED, true));
         BlockPos waterlogged = helper.absolutePos(new BlockPos(24, 0, 8));
-        helper.assertTrue(!RootlandsShoreFeature.reshapeColumn(level, waterlogged.getX(), waterlogged.getZ(), offset + 15, offset + 6, offset + 8), "Waterlogged structures must not be mistaken for ordinary water");
+        helper.assertTrue(!RootlandsShoreFeature.reshapeColumn(level, waterlogged.getX(), waterlogged.getZ(), offset + 15, offset + 8, offset + 8), "Waterlogged structures must not be mistaken for ordinary water");
         helper.assertBlockPresent(Blocks.DARK_OAK_STAIRS, new BlockPos(24, 10, 8));
+        helper.succeed();
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
+    public static void beachesAlsoFormWhenGroundNeedsNoHeightChange(GameTestHelper helper) {
+        for (int y = 2; y <= 8; y++) helper.setBlock(8, y, 8, Blocks.STONE);
+        helper.setBlock(8, 8, 8, Blocks.GRASS_BLOCK);
+        var pos = helper.absolutePos(new BlockPos(8, 8, 8));
+        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(helper.getLevel(), pos.getX(), pos.getZ(), pos.getY(), pos.getY(), pos.getY()), "A low grassy bank still needs its beach material");
+        for (int y = 6; y <= 8; y++) helper.assertBlockPresent(Blocks.SAND, new BlockPos(8, y, 8));
+        helper.assertBlockPresent(Blocks.SANDSTONE, new BlockPos(8, 5, 8));
+        helper.assertBlockPresent(Blocks.AIR, new BlockPos(8, 9, 8));
         helper.succeed();
     }
 

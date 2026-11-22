@@ -16,15 +16,16 @@ import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.material.FluidState;
 
-/** A real noise-filled chunk exposed through the production WorldGenRegion surface entry point. */
+/** Real noise/surface/carver stages; neighboring placeholders provide only carver settings, never terrain. */
 final class NoiseSurfaceTestRegion extends WorldGenRegion {
     private final ChunkAccess chunk;
     private final NoiseBasedChunkGenerator generator;
     private final RandomState random;
     private final BiomeManager manager;
+    private final java.util.Map<ChunkPos, ChunkAccess> neighbors = new java.util.HashMap<>();
 
     NoiseSurfaceTestRegion(ServerLevel owner, ChunkAccess chunk, NoiseBasedChunkGenerator generator, RandomState random, long seed) {
-        super(owner, null, ChunkPyramid.GENERATION_PYRAMID.getStepTo(ChunkStatus.SURFACE), chunk);
+        super(owner, null, ChunkPyramid.GENERATION_PYRAMID.getStepTo(ChunkStatus.CARVERS), chunk);
         this.chunk = chunk;
         this.generator = generator;
         this.random = random;
@@ -32,8 +33,11 @@ final class NoiseSurfaceTestRegion extends WorldGenRegion {
     }
 
     @Override public ChunkAccess getChunk(int x, int z, ChunkStatus status, boolean required) {
-        if (chunk.getPos().x != x || chunk.getPos().z != z) throw new IllegalStateException("Surface test requested another chunk");
-        return chunk;
+        if (chunk.getPos().x == x && chunk.getPos().z == z) return chunk;
+        // Carvers inspect a 17x17 region's biome settings, but carve only the central real chunk.
+        return neighbors.computeIfAbsent(new ChunkPos(x, z), pos -> new net.minecraft.world.level.chunk.ProtoChunk(pos,
+                net.minecraft.world.level.chunk.UpgradeData.EMPTY, chunk.getHeightAccessorForGeneration(),
+                registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.BIOME), null));
     }
     @Override public BlockState getBlockState(BlockPos pos) { return chunk.getBlockState(pos); }
     @Override public FluidState getFluidState(BlockPos pos) { return getBlockState(pos).getFluidState(); }
