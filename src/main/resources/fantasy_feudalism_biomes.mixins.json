@@ -5,7 +5,8 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "RootlandsShoreMixin",
-    "DensityFunctionWrapperAccessor"
+    "DensityFunctionWrapperAccessor",
+    "RootWormArrowMixin"
   ],
   "injectors": {
     "defaultRequire": 1

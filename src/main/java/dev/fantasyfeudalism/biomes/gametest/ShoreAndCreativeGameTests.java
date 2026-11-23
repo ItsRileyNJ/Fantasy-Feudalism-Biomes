@@ -43,28 +43,18 @@ public final class ShoreAndCreativeGameTests {
     }
 
     @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
-    public static void lowFlatCoastGetsNarrowSandTrimInsteadOfAnInlandSandSheet(GameTestHelper helper) {
-        int sand = 0;
-        for (int chunkX = -64; chunkX < 0; chunkX += 16) {
+    public static void gentleCoastsAndShallowWaterKeepTheirOriginalShape(GameTestHelper helper) {
+        for (int chunkX = -64; chunkX < 64; chunkX += 16) {
             var profile = new ShorelineProfile(chunkX, 0, 63, 64, (x, z) -> new ShorelineProfile.Sample(x >= 0, x < 0));
             for (int x = chunkX; x < chunkX + 16; x++) {
-                int target = profile.targetHeight(x, 8, 66);
-                if (profile.beachBand(x, 8, target)) sand++;
-                if (x <= -16) {
-                    helper.assertTrue(!profile.beachBand(x, 8, target), "Low inland terrain must not become beach just because its height is near sea level");
-                    helper.assertTrue(target >= 64, "The terrain must rise inland instead of remaining a sea-level shelf");
+                for (int original = 63; original <= 66; original++) {
+                    helper.assertTrue(profile.targetHeight(x, 8, original) == original, "Gentle banks must retain their natural shape, x=" + x);
+                }
+                for (int original = 59; original <= 61; original++) {
+                    helper.assertTrue(profile.targetHeight(x, 8, original) == original, "Shallow beds must not be forced into a shelf, x=" + x);
                 }
             }
         }
-        helper.assertTrue(sand > 0 && sand <= 8, "Added sand must stay in a narrow water-edge trim, got " + sand + " blocks");
-        var inland = new ShorelineProfile(-32, 0, 63, 64, (x, z) -> new ShorelineProfile.Sample(x >= 0, x < 0));
-        int offset = helper.absolutePos(new BlockPos(8, 0, 8)).getY();
-        for (int y = 2; y <= 12; y++) helper.setBlock(8, y, 8, Blocks.STONE);
-        var pos = helper.absolutePos(new BlockPos(8, 0, 8));
-        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(helper.getLevel(), pos.getX(), pos.getZ(), offset + 12,
-                offset + 8, offset + 8, inland.beachBand(-24, 8, 63), false), "Inland low bank should still be gradeable");
-        helper.assertBlockPresent(Blocks.GRASS_BLOCK, new BlockPos(8, 8, 8));
-        helper.assertBlockPresent(Blocks.DIRT, new BlockPos(8, 7, 8));
         helper.succeed();
     }
 
@@ -91,7 +81,7 @@ public final class ShoreAndCreativeGameTests {
                     "Adjacent chunk profiles must have identical shared edge values");
             helper.assertTrue(Math.abs(west.signedDistance(0, z) - east.signedDistance(0, z)) < 1e-12,
                     "The sampled shoreline must also agree at a shared chunk edge");
-            helper.assertTrue(west.beachBand(0, z, 63) == east.beachBand(0, z, 63), "Added sand must not stop or widen at a chunk edge");
+            helper.assertTrue(west.targetHeight(0, z, 80) == east.targetHeight(0, z, 80), "Grading must agree at a shared chunk edge");
         }
         var distant = new ShorelineProfile(0, 0, 63, 64, (x, z) -> new ShorelineProfile.Sample(x >= 0, false));
         helper.assertTrue(distant.strength(1, 8) == 0, "Unrelated shores far from Rootlands must stay unchanged");
@@ -103,17 +93,21 @@ public final class ShoreAndCreativeGameTests {
         var level = helper.getLevel();
         for (int y = 2; y <= 20; y++) helper.setBlock(8, y, 8, Blocks.STONE);
         helper.setBlock(8, 5, 8, Blocks.AIR);
+        helper.setBlock(8, 20, 8, Blocks.GRASS_BLOCK);
+        for (int y = 17; y < 20; y++) helper.setBlock(8, y, 8, Blocks.DIRT);
         BlockPos land = helper.absolutePos(new BlockPos(8, 0, 8));
         int offset = land.getY();
         helper.assertTrue(!RootlandsShoreFeature.reshapeColumn(level, land.getX(), land.getZ(), offset + 20, offset + 6, offset + 8), "Dry land must never be flooded into an artificial river");
-        helper.assertBlockPresent(Blocks.STONE, new BlockPos(8, 20, 8));
-        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(level, land.getX(), land.getZ(), offset + 20, offset + 8, offset + 8), "Land cliff should become a dry sandy bank");
-        helper.assertBlockPresent(Blocks.SAND, new BlockPos(8, 8, 8));
-        helper.assertBlockPresent(Blocks.SAND, new BlockPos(8, 7, 8));
-        helper.assertBlockPresent(Blocks.SANDSTONE, new BlockPos(8, 5, 8));
+        helper.assertBlockPresent(Blocks.GRASS_BLOCK, new BlockPos(8, 20, 8));
+        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(level, land.getX(), land.getZ(), offset + 20, offset + 8, offset + 8), "Land cliff should become a dry grassy bank");
+        helper.assertBlockPresent(Blocks.GRASS_BLOCK, new BlockPos(8, 8, 8));
+        helper.assertBlockPresent(Blocks.DIRT, new BlockPos(8, 7, 8));
+        helper.assertBlockPresent(Blocks.DIRT, new BlockPos(8, 5, 8));
         helper.assertBlockPresent(Blocks.AIR, new BlockPos(8, 9, 8));
 
-        helper.setBlock(12, 2, 8, Blocks.STONE);
+        helper.setBlock(12, 2, 8, Blocks.GRAVEL);
+        helper.setBlock(12, 1, 8, Blocks.STONE);
+        helper.setBlock(12, 0, 8, Blocks.STONE);
         for (int y = 3; y < 8; y++) helper.setBlock(12, y, 8, Blocks.WATER);
         BlockPos bed = helper.absolutePos(new BlockPos(12, 0, 8));
         helper.assertTrue(RootlandsShoreFeature.reshapeColumn(level, bed.getX(), bed.getZ(), offset + 2, offset + 5, offset + 8), "Underwater bed should rise toward shore");
@@ -137,14 +131,51 @@ public final class ShoreAndCreativeGameTests {
     }
 
     @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
-    public static void beachesAlsoFormWhenGroundNeedsNoHeightChange(GameTestHelper helper) {
-        for (int y = 2; y <= 8; y++) helper.setBlock(8, y, 8, Blocks.STONE);
+    public static void unchangedGrassAtTheWaterEdgeIsNeverPaintedSand(GameTestHelper helper) {
+        for (int y = 2; y <= 8; y++) helper.setBlock(8, y, 8, Blocks.DIRT);
         helper.setBlock(8, 8, 8, Blocks.GRASS_BLOCK);
         var pos = helper.absolutePos(new BlockPos(8, 8, 8));
-        helper.assertTrue(RootlandsShoreFeature.reshapeColumn(helper.getLevel(), pos.getX(), pos.getZ(), pos.getY(), pos.getY(), pos.getY()), "A low grassy bank still needs its beach material");
-        for (int y = 6; y <= 8; y++) helper.assertBlockPresent(Blocks.SAND, new BlockPos(8, y, 8));
-        helper.assertBlockPresent(Blocks.SANDSTONE, new BlockPos(8, 5, 8));
+        helper.assertTrue(!RootlandsShoreFeature.reshapeColumn(helper.getLevel(), pos.getX(), pos.getZ(), pos.getY(), pos.getY(), pos.getY()), "An unchanged bank must not trigger any material replacement");
+        helper.assertBlockPresent(Blocks.GRASS_BLOCK, new BlockPos(8, 8, 8));
+        helper.assertBlockPresent(Blocks.DIRT, new BlockPos(8, 7, 8));
         helper.assertBlockPresent(Blocks.AIR, new BlockPos(8, 9, 8));
+        helper.succeed();
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
+    public static void gradingRetainsNaturalSandAndRootedSoilInsteadOfApplyingAShorePalette(GameTestHelper helper) {
+        var caps = new net.minecraft.world.level.block.Block[]{Blocks.SAND, Blocks.RED_SAND, Blocks.ROOTED_DIRT, Blocks.COARSE_DIRT};
+        for (int i = 0; i < caps.length; i++) {
+            int x = 8 + i * 5;
+            for (int y = 2; y <= 15; y++) helper.setBlock(x, y, 8, Blocks.STONE);
+            for (int y = 13; y <= 15; y++) helper.setBlock(x, y, 8, caps[i]);
+            var pos = helper.absolutePos(new BlockPos(x, 0, 8));
+            helper.assertTrue(RootlandsShoreFeature.reshapeColumn(helper.getLevel(), pos.getX(), pos.getZ(), pos.getY() + 15, pos.getY() + 8, pos.getY() + 8), "A steep native bank should be gradeable");
+            for (int y = 6; y <= 8; y++) helper.assertBlockPresent(caps[i], new BlockPos(x, y, 8));
+            helper.assertBlockPresent(Blocks.STONE, new BlockPos(x, 5, 8));
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test_arena", timeoutTicks = 100, skyAccess = true)
+    public static void naturalBeachWidthsVaryAndGrassCanMeetWaterWithoutAnySand(GameTestHelper helper) {
+        int[] widths = {0, 2, 7, 4};
+        for (int row = 0; row < widths.length; row++) {
+            int sandAfter = 0;
+            for (int column = 0; column < 16; column++) {
+                int x = 8 + column, z = 8 + row * 3;
+                var nativeCap = column < widths[row] ? Blocks.SAND : Blocks.GRASS_BLOCK;
+                for (int y = 2; y <= 15; y++) helper.setBlock(x, y, z, Blocks.STONE);
+                helper.setBlock(x, 15, z, nativeCap);
+                helper.setBlock(x, 14, z, column < widths[row] ? Blocks.SAND : Blocks.DIRT);
+                helper.setBlock(x, 13, z, column < widths[row] ? Blocks.SAND : Blocks.DIRT);
+                var pos = helper.absolutePos(new BlockPos(x, 0, z));
+                helper.assertTrue(RootlandsShoreFeature.reshapeColumn(helper.getLevel(), pos.getX(), pos.getZ(), pos.getY() + 15, pos.getY() + 8, pos.getY() + 8), "Steep shore should be gradeable");
+                helper.assertBlockPresent(nativeCap, new BlockPos(x, 8, z));
+                if (helper.getBlockState(new BlockPos(x, 8, z)).is(Blocks.SAND)) sandAfter++;
+            }
+            helper.assertTrue(sandAfter == widths[row], "Shore grading must retain each natural beach width, including zero; row=" + row);
+        }
         helper.succeed();
     }
 

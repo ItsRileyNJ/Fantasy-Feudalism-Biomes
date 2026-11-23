@@ -4,6 +4,7 @@ import dev.fantasyfeudalism.biomes.block.ThornBlock;
 import dev.fantasyfeudalism.biomes.block.RootFlowerBlock;
 import dev.fantasyfeudalism.biomes.block.RootlandsGrassBlock;
 import dev.fantasyfeudalism.biomes.entity.RootWorm;
+import dev.fantasyfeudalism.biomes.entity.RootWormPart;
 import dev.fantasyfeudalism.biomes.worldgen.RootlandsIntegration;
 import dev.fantasyfeudalism.biomes.worldgen.RootlandsScatterFeature;
 import dev.fantasyfeudalism.biomes.worldgen.RootlandsShoreFeature;
@@ -126,6 +127,7 @@ public final class FantasyBiomes {
         bus.addListener(FantasyBiomes::creativeContents);
         bus.addListener(FantasyBiomes::entityAttributes);
         bus.addListener(FantasyBiomes::spawnPlacements);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(RootWormPart::redirectPlayerAttack);
         RootlandsIntegration.register();
     }
 

@@ -37,6 +37,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.phys.Vec3;
 
 /** A neutral, root-seeking creature. Feeding is purely cosmetic and never changes a block. */
 public final class RootWorm extends PathfinderMob {
@@ -47,11 +48,66 @@ public final class RootWorm extends PathfinderMob {
     private static final EntityDataAccessor<Boolean> FEEDING = SynchedEntityData.defineId(RootWorm.class, EntityDataSerializers.BOOLEAN);
 
     private float mouthOpen, previousMouthOpen;
+    private final RootWormPart[] bodyParts;
+    private final Vec3[] previousPartPositions;
 
     public RootWorm(EntityType<? extends RootWorm> type, Level level) {
         super(type, level);
         this.xpReward = 2;
         setPathfindingMalus(PathType.DAMAGE_OTHER, -1.0F);
+        bodyParts = new RootWormPart[RootWormShape.SEGMENTS.size()];
+        previousPartPositions = new Vec3[bodyParts.length];
+        for (int i = 0; i < bodyParts.length; i++) bodyParts[i] = new RootWormPart(this, i);
+        // Reserve consecutive IDs, as NeoForge does for the dragon, so spawn packets resolve every part.
+        setId(ENTITY_COUNTER.getAndAdd(bodyParts.length + 1) + 1);
+        positionBodyParts();
+    }
+
+    @Override public boolean isMultipartEntity() { return true; }
+    @Override public RootWormPart[] getParts() { return bodyParts; }
+
+    @Override public void setId(int id) {
+        super.setId(id);
+        if (bodyParts != null) for (int i = 0; i < bodyParts.length; i++) bodyParts[i].setId(id + i + 1);
+    }
+
+    @Override public void setPos(double x, double y, double z) {
+        super.setPos(x, y, z);
+        if (bodyParts != null) positionBodyParts();
+    }
+
+    @Override public void setYBodyRot(float yaw) {
+        super.setYBodyRot(yaw);
+        if (bodyParts != null) positionBodyParts();
+    }
+
+    @Override public void tick() {
+        for (int i = 0; i < bodyParts.length; i++) previousPartPositions[i] = bodyParts[i].position();
+        super.tick();
+        positionBodyParts();
+        for (int i = 0; i < bodyParts.length; i++) {
+            var part = bodyParts[i];
+            var old = previousPartPositions[i];
+            part.xo = part.xOld = old.x;
+            part.yo = part.yOld = old.y;
+            part.zo = part.zOld = old.z;
+        }
+    }
+
+    private void positionBodyParts() {
+        float yaw = yBodyRot * Mth.DEG_TO_RAD;
+        float scale = getScale();
+        for (int i = 0; i < bodyParts.length; i++) {
+            var part = bodyParts[i];
+            float forward = RootWormShape.hitForward(i) * scale;
+            part.refreshDimensions();
+            part.setPos(getX() - Mth.sin(yaw) * forward, getY() + RootWormShape.hitBottom(i) * scale,
+                    getZ() + Mth.cos(yaw) * forward);
+            // Direct teleports start with matching old/current poses; tick restores its captured old poses.
+            part.xo = part.xOld = part.getX();
+            part.yo = part.yOld = part.getY();
+            part.zo = part.zOld = part.getZ();
+        }
     }
 
     public static AttributeSupplier.Builder createAttributes() {

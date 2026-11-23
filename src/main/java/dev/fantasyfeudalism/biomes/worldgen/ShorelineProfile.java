@@ -57,12 +57,6 @@ public final class ShorelineProfile {
 
     public double signedDistance(int x, int z) { return interpolate(distances, x, z); }
 
-    /** Sand is a narrow shoreline trim, independent of the much wider terrain blending band. */
-    public boolean beachBand(int x, int z, int top) {
-        return Math.abs(signedDistance(x, z)) <= 6 && top >= seaLevel - 2 && top <= seaLevel + 2
-                && interpolate(influences, x, z) > 0;
-    }
-
     private double interpolate(double[][] grid, int x, int z) {
         double gx = (x - chunkX) / (double) STEP;
         double gz = (z - chunkZ) / (double) STEP;
@@ -81,7 +75,11 @@ public final class ShorelineProfile {
         // Never turn dry forest into a river or lift a wet bed above its water surface.
         boolean land = originalTop >= seaLevel - 1;
         double distance = Math.max(0, land ? signedDistance(x, z) : -signedDistance(x, z));
-        double amount = Math.max(0, 1 - distance / width) * interpolate(influences, x, z);
+        // Leave gentle banks and shallow water alone. Only excess relief above a gradual
+        // shore envelope needs grading; the soft threshold avoids a new boundary at that limit.
+        double relief = land ? originalTop - seaLevel : seaLevel - 1 - originalTop;
+        double need = smooth((relief - (3 + distance * 0.75)) / 8.0);
+        double amount = Math.max(0, 1 - distance / width) * interpolate(influences, x, z) * need;
         int anchor = land ? seaLevel : seaLevel - 2;
         int target = (int) Math.round(originalTop * (1 - amount) + anchor * amount);
         return land ? Math.min(originalTop, Math.max(seaLevel - 1, target))

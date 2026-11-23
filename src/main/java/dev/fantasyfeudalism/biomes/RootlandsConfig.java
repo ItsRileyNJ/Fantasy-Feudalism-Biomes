@@ -34,9 +34,9 @@ public final class RootlandsConfig {
                 .defineInRange("biomeSize", DEFAULT_BIOME_SIZE, 256, 8192);
         EDGE_BLEND = builder.comment("Distance in blocks over which custom decoration tapers near other biomes; 0 disables tapering.")
                 .defineInRange("edgeBlendWidth", 24, 0, 96);
-        GENTLE_SHORES = builder.comment("Create dry sandy banks and shallow seabeds near Rootlands after caves, before vegetation. Preserve vanilla water height and existing land/water coverage.")
+        GENTLE_SHORES = builder.comment("Soften steep water borders near Rootlands after caves, preserving natural surface materials, gentle banks, vanilla water height and existing land/water coverage.")
                 .define("gentleShores", true);
-        SHORE_WIDTH = builder.comment("Shoreline transition width in blocks. Also blends into neighboring biomes to avoid a seam at the biome border.")
+        SHORE_WIDTH = builder.comment("Maximum terrain blending distance near steep shores, including neighboring biomes. Does not set beach widths.")
                 .defineInRange("shoreWidth", 64, 16, 128);
         TREE_DENSITY = builder.comment("Jagged tree attempts per Rootlands chunk, before frequency scaling.")
                 .defineInRange("treeDensity", 5, 0, 24);

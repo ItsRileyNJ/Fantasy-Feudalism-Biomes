@@ -2,6 +2,7 @@ package dev.fantasyfeudalism.biomes.client;
 
 import dev.fantasyfeudalism.biomes.FantasyBiomes;
 import dev.fantasyfeudalism.biomes.entity.RootWorm;
+import dev.fantasyfeudalism.biomes.entity.RootWormShape;
 import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
@@ -15,7 +16,7 @@ import net.minecraft.util.Mth;
 public final class RootWormModel extends HierarchicalModel<RootWorm> {
     public static final ModelLayerLocation LAYER = new ModelLayerLocation(FantasyBiomes.id("root_worm"), "main");
     private final ModelPart root;
-    private final ModelPart[] segments = new ModelPart[9];
+    private final ModelPart[] segments = new ModelPart[RootWormShape.SEGMENTS.size()];
     private final ModelPart upperJaw;
     private final ModelPart lowerJaw;
     private final ModelPart leftJaw;
@@ -35,16 +36,13 @@ public final class RootWormModel extends HierarchicalModel<RootWorm> {
     public static LayerDefinition createLayer() {
         var mesh = new MeshDefinition();
         var root = mesh.getRoot();
-        int[] widths = {8, 8, 8, 7, 7, 6, 5, 4, 2};
-        int[] heights = {5, 6, 6, 5, 5, 4, 4, 3, 2};
-        int[] lengths = {5, 5, 5, 5, 5, 4, 4, 3, 3};
-        float z = -16;
-        for (int i = 0; i < widths.length; i++) {
-            float w = widths[i], h = heights[i];
+        for (int i = 0; i < RootWormShape.SEGMENTS.size(); i++) {
+            var shape = RootWormShape.SEGMENTS.get(i);
+            float w = shape.width(), h = shape.height();
             var segment = root.addOrReplaceChild("segment" + i,
                     CubeListBuilder.create().texOffs(0, i == 0 ? 0 : 16)
-                            .addBox(-w / 2, -h, -lengths[i] / 2.0F, w, h, lengths[i]),
-                    PartPose.offset(0, 24, z));
+                            .addBox(-w / 2, -h, -shape.length() / 2.0F, w, h, shape.length()),
+                    PartPose.offset(0, 24, shape.z()));
             if (i == 0) {
                 // Recessed lateral eyes sit beneath layered bark plates, without cartoon cheeks or a smile.
                 segment.addOrReplaceChild("brow", CubeListBuilder.create().texOffs(32, 0)
@@ -85,7 +83,6 @@ public final class RootWormModel extends HierarchicalModel<RootWorm> {
                             .addBox(0.3F, -h - 0.3F, 0.5F, 0.8F, 0.3F, 1.1F), PartPose.ZERO);
                 }
             }
-            z += lengths[i] - 0.5F;
         }
         return LayerDefinition.create(mesh, 128, 64);
     }

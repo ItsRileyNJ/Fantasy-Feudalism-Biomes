@@ -38,7 +38,7 @@ public final class CoastGenerationGameTests {
     @GameTest(template = "test_arena", timeoutTicks = 300, skyAccess = true)
     public static void realCoastsKeepWaterAtVanillaLevelAndDryForestSupportsRoots(GameTestHelper helper) {
         boolean enabled = RootlandsConfig.GENTLE_SHORES.get();
-        int wet = 0, dry = 0, graded = 0, beaches = 0, rooted = 0;
+        int wet = 0, dry = 0, graded = 0, nativeSand = 0, rooted = 0;
         try {
             var registries = helper.getLevel().registryAccess();
             var settings = registries.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD);
@@ -71,11 +71,14 @@ public final class CoastGenerationGameTests {
                         int after = actual.chunk().getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z);
                         BlockPos surface = pos.getBlockAt(x, sea - 1, z);
                         if (before != after) graded++;
+                        var nativeCap = baseline.chunk().getBlockState(pos.getBlockAt(x, before, z));
+                        var gradedCap = actual.chunk().getBlockState(pos.getBlockAt(x, after, z));
+                        helper.assertTrue(gradedCap.equals(nativeCap), "Shore grading must preserve the native surface, not paint a sand corridor: " + surface);
+                        if (nativeCap.is(Blocks.SAND)) nativeSand++;
                         if (before >= sea - 1) {
                             dry++;
                             helper.assertTrue(after >= sea - 1, "Dry forest must not become a river: " + surface + " seed=" + seed);
                             helper.assertTrue(actual.chunk().getBlockState(pos.getBlockAt(x, after + 1, z)).getFluidState().isEmpty(), "Dry bank must have air above it");
-                            if (actual.chunk().getBlockState(pos.getBlockAt(x, after, z)).is(Blocks.SAND)) beaches++;
                             if (actual.chunk().getBlockState(pos.getBlockAt(x, after, z)).is(Blocks.GRASS_BLOCK)) rootSoil = pos.getBlockAt(x, after + 1, z);
                         }
                         if (before < sea - 1 && baseline.chunk().getBlockState(surface).getFluidState().is(FluidTags.WATER)) {
@@ -95,9 +98,9 @@ public final class CoastGenerationGameTests {
                     }
                 }
             }
-            helper.assertTrue(wet > 0 && dry > 0 && graded > 0 && beaches > 0 && rooted > 0,
-                    "Need real water, dry forest, graded shores, sand beaches and roots; counts=" + wet + "," + dry + "," + graded + "," + beaches + "," + rooted);
-            System.out.println("Coast checks wet=" + wet + " dry=" + dry + " graded=" + graded + " sand=" + beaches + " rootedChunks=" + rooted);
+            helper.assertTrue(wet > 0 && dry > 0 && graded > 0 && rooted > 0,
+                    "Need real water, dry forest, graded shores and roots; counts=" + wet + "," + dry + "," + graded + "," + nativeSand + "," + rooted);
+            System.out.println("Coast checks wet=" + wet + " dry=" + dry + " graded=" + graded + " sand=" + nativeSand + " rootedChunks=" + rooted);
         } finally { RootlandsConfig.GENTLE_SHORES.set(enabled); }
         helper.succeed();
     }

@@ -75,11 +75,7 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
             int originalTop = originalHeights[(x - chunkX) * 16 + z - chunkZ];
             // Do not flood dry depressions or underground caves merely because they lie below sea level.
             if (originalTop < sea - 1 && !region.getFluidState(new BlockPos(x, sea - 1, z)).is(FluidTags.WATER)) continue;
-            var biome = generator.getBiomeSource().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(sea), QuartPos.fromBlock(z), random.sampler());
-            boolean stony = biome.is(net.minecraft.world.level.biome.Biomes.STONY_SHORE);
-            int target = profile.targetHeight(x, z, originalTop);
-            boolean sandy = !stony && (biome.is(net.minecraft.tags.BiomeTags.IS_BEACH) || profile.beachBand(x, z, target));
-            changed |= reshapeColumn(region, x, z, originalTop, target, sea, sandy, stony);
+            changed |= reshapeColumn(region, x, z, originalTop, profile.targetHeight(x, z, originalTop), sea);
         }
         return changed;
     }
@@ -96,15 +92,10 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
 
     /** Atomically validate a column before changing natural ground; preserve foreign blocks and block entities. */
     public static boolean reshapeColumn(WorldGenLevel level, int x, int z, int originalTop, int targetTop, int sea) {
-        return reshapeColumn(level, x, z, originalTop, targetTop, sea, targetTop >= sea - 2 && targetTop <= sea + 2, false);
-    }
-
-    public static boolean reshapeColumn(WorldGenLevel level, int x, int z, int originalTop, int targetTop, int sea, boolean sandy, boolean stony) {
         int waterTop = sea - 1;
         // Reject any request to inundate existing land or make an island from an existing water column.
         if ((originalTop >= waterTop && targetTop < waterTop) || (originalTop < waterTop && targetTop >= waterTop)) return false;
-        boolean beach = !stony && sandy;
-        if (targetTop == originalTop && (!beach || level.getBlockState(new BlockPos(x, targetTop, z)).is(Blocks.SAND))) return false;
+        if (targetTop == originalTop) return false;
         if (targetTop <= level.getMinBuildHeight() || targetTop >= level.getMaxBuildHeight() - 1) return false;
         if (!level.ensureCanWrite(new BlockPos(x, targetTop, z))) return false;
         int lower = Math.min(originalTop, targetTop);
@@ -115,6 +106,18 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
             if (state.hasBlockEntity() || !natural(state)) return false;
             if (targetTop > originalTop && y > originalTop && !state.isAir() && !state.getFluidState().is(FluidTags.WATER)) return false;
         }
+        // Carry the original surface and shallow soil layers to the new height. No sand palette,
+        // biome-based beach override, or fixed-width strip is introduced by this pass.
+        BlockState cap = level.getBlockState(new BlockPos(x, originalTop, z));
+        BlockState fallback = (cap.is(BlockTags.DIRT) ? Blocks.DIRT : cap.is(Blocks.SAND) ? Blocks.SANDSTONE
+                : cap.is(Blocks.RED_SAND) ? Blocks.RED_SANDSTONE : Blocks.STONE).defaultBlockState();
+        BlockState[] soil = new BlockState[3];
+        for (int depth = 1; depth <= 3; depth++) {
+            BlockState nativeLayer = level.getBlockState(new BlockPos(x, originalTop - depth, z));
+            boolean unsupported = nativeLayer.isAir() || !nativeLayer.getFluidState().isEmpty()
+                    || (depth == 3 && (nativeLayer.is(BlockTags.SAND) || nativeLayer.is(Blocks.GRAVEL)));
+            soil[depth - 1] = unsupported ? fallback : nativeLayer;
+        }
         if (targetTop < originalTop) {
             for (int y = originalTop; y > targetTop; y--) {
                 level.setBlock(new BlockPos(x, y, z), y < sea ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
@@ -122,12 +125,9 @@ public final class RootlandsShoreFeature extends Feature<NoneFeatureConfiguratio
         } else {
             for (int y = originalTop + 1; y <= targetTop; y++) level.setBlock(new BlockPos(x, y, z), Blocks.STONE.defaultBlockState(), 2);
         }
-        // Preserve beach materials and make a sandy intertidal strip on ordinary woodland banks.
-        BlockState cap = (stony ? Blocks.STONE : beach ? Blocks.SAND : targetTop < waterTop ? Blocks.GRAVEL : Blocks.GRASS_BLOCK).defaultBlockState();
         level.setBlock(new BlockPos(x, targetTop, z), cap, 2);
-        // Three solid supporting blocks keep the cap above shallow caves, including sand/gravel.
-        for (int y = targetTop - 1; y >= Math.max(targetTop - 3, level.getMinBuildHeight() + 1); y--) {
-            level.setBlock(new BlockPos(x, y, z), (beach ? (y == targetTop - 3 ? Blocks.SANDSTONE : Blocks.SAND) : targetTop < waterTop || stony ? Blocks.STONE : Blocks.DIRT).defaultBlockState(), 2);
+        for (int depth = 1; depth <= 3 && targetTop - depth > level.getMinBuildHeight(); depth++) {
+            level.setBlock(new BlockPos(x, targetTop - depth, z), soil[depth - 1], 2);
         }
         for (int y = targetTop + 1; y < sea; y++) level.setBlock(new BlockPos(x, y, z), Blocks.WATER.defaultBlockState(), 2);
         return true;
