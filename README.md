@@ -131,3 +131,11 @@ The integration suite covers biome selection and dark-forest adjacency, raw terr
 Build scaffolding derives from NeoForgeMDKs/MDK-1.21.1-ModDevGradle at `e0000cb81c6ca4bb218046cfd8ade771a42e9c32`; its license is retained in `TEMPLATE_LICENSE.txt`. The mod contains no Regions Unexplored classes, textures or structures.
 
 Current validation: the Java 21 / NeoForge 21.1.262 build and all **56 required GameTests** pass with the supplied Lithostitched/Apollib dependencies. The worm model, grass and thorn assets are compiled and their texture references are checked; an in-client visual review remains pending.
+
+## Portable Root Worm export
+
+Run `python3 tools/export_rootworm.py` to generate `build/exports/RootWorm-Integration-Kit-NeoForge-1.21.1.zip`. The kit includes the entity, multipart hitboxes, model, texture, Java animations, spawn egg, registration, configuration and integration instructions for an existing NeoForge 1.21.1 mod. Its retargeting tool changes the mod ID and Java package before merging.
+
+The portable variant has no biome or custom-block dependencies. The destination mod controls its natural spawn locations. Export templates under `tools/rootworm_export/` provide the green-free back, matching black-pupiled eyes with blinking, faster bite animation, and neutral hearing-driven behavior. It hears ordinary gameplay actions, investigates remembered sound locations, and uses a committed bite with a short lunge when retaliating. Quiet sneaking does not produce footsteps for it to follow.
+
+The optional isolated example builds with Minecraft and NeoForge alone. All **17 required GameTests** pass, covering the portable spawn rules, multipart damage, neutrality, fire weakness, hearing, sound memory and bites against a slowly retreating player. Client appearance still needs an in-game visual review. See the ZIP's `README.md` for merge steps and the example build commands.
