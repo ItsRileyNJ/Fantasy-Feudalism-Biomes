@@ -134,6 +134,8 @@ Current validation: the Java 21 / NeoForge 21.1.262 build and all **56 required 
 
 ## Portable Root Worm export
 
+Download the [Root Worm integration ZIP](exports/RootWorm-Integration-Kit-NeoForge-1.21.1.zip) from this repository. It contains the portable source and assets, including the raised searching animation, for merging into an existing mod.
+
 Run `python3 tools/export_rootworm.py` to generate `build/exports/RootWorm-Integration-Kit-NeoForge-1.21.1.zip`. The kit includes the entity, multipart hitboxes, model, texture, Java animations, spawn egg, registration, configuration and integration instructions for an existing NeoForge 1.21.1 mod. Its retargeting tool changes the mod ID and Java package before merging.
 
 The portable variant has no biome or custom-block dependencies. The destination mod controls its natural spawn locations. Export templates under `tools/rootworm_export/` provide the green-free back, matching black-pupiled eyes with blinking, faster bite animation, and neutral hearing-driven behavior. It hears ordinary gameplay actions, investigates remembered sound locations, and uses a committed bite with a short lunge when retaliating. Quiet sneaking does not produce footsteps for it to follow.
