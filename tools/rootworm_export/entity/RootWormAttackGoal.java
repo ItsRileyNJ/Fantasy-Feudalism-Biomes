@@ -25,7 +25,7 @@ final class RootWormAttackGoal extends Goal {
     }
     @Override public boolean canContinueToUse() { return windup > 0 && target() != null || canUse(); }
     @Override public boolean requiresUpdateEveryTick() { return true; }
-    @Override public void start() { destination = null; repath = 0; }
+    @Override public void start() { worm.setSearching(false); destination = null; repath = 0; }
     @Override public void tick() {
         var target = target();
         if (target == null) return;

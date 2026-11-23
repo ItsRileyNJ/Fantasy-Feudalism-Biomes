@@ -124,15 +124,20 @@ public final class RootWormModel extends HierarchicalModel<RootWorm> {
 
     @Override public void setupAnim(RootWorm worm, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
         root.getAllParts().forEach(ModelPart::resetPose);
-        float movement = Math.min(1.0F, limbSwingAmount * 3);
+        float partialTick = Mth.clamp(ageInTicks - worm.tickCount, 0, 1);
+        float search = worm.getSearchAmount(partialTick);
+        float movement = Math.min(1.0F, limbSwingAmount * 3) * (1 - search);
         for (int i = 0; i < segments.length; i++) {
+            var pose = worm.getSearchPose(i, partialTick);
             float wave = limbSwing * 2.2F - i * 0.65F;
-            segments[i].yRot = Mth.sin(wave) * 0.22F * movement;
-            segments[i].x = Mth.sin(wave) * 1.2F * movement;
-            segments[i].y -= Math.abs(Mth.cos(wave)) * 0.5F * movement;
-            segments[i].y -= Mth.sin(ageInTicks * 0.08F - i * 0.6F) * 0.06F;
+            segments[i].yRot = pose.yaw() + Mth.sin(wave) * 0.22F * movement;
+            segments[i].xRot = -pose.pitch();
+            segments[i].x = pose.x() + Mth.sin(wave) * 1.2F * movement;
+            segments[i].z = pose.z();
+            segments[i].y -= pose.lift() + Math.abs(Mth.cos(wave)) * 0.5F * movement;
+            segments[i].y -= Mth.sin(ageInTicks * 0.08F - i * 0.6F) * 0.06F * (1 - search);
         }
-        segments[0].yRot += netHeadYaw * Mth.DEG_TO_RAD * 0.3F;
+        segments[0].yRot += netHeadYaw * Mth.DEG_TO_RAD * 0.3F * (1 - search);
         eyes.yScale = ageInTicks % 140 > 136 ? 0.15F : 1.0F;
         float mouth = worm.getMouthOpenAmount(ageInTicks - worm.tickCount);
         upperJaw.xRot = -mouth * 0.75F;
@@ -140,7 +145,7 @@ public final class RootWormModel extends HierarchicalModel<RootWorm> {
         leftJaw.yRot = mouth * 0.58F;
         rightJaw.yRot = -mouth * 0.58F;
         if (worm.isFeeding()) {
-            segments[0].xRot = 0.06F + Mth.sin(ageInTicks * 0.5F) * 0.05F;
+            segments[0].xRot += (0.06F + Mth.sin(ageInTicks * 0.5F) * 0.05F) * (1 - search);
             // Root nibbling remains a small head motion with the mouth closed.
         }
     }

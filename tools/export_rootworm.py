@@ -49,11 +49,12 @@ if KIT.exists():
 KIT.mkdir(parents=True)
 
 # Keep the actual model/texture/animation/hitbox implementation; remove habitat coupling.
-for relative in ['entity/RootWormPart.java', 'entity/RootWormShape.java', 'entity/AvoidHeatGoal.java',
+for relative in ['entity/RootWormShape.java', 'entity/AvoidHeatGoal.java',
                  'client/RootWormRenderer.java', 'mixin/RootWormArrowMixin.java']:
     write('src/main/java/' + PACKAGE.replace('.', '/') + '/' + relative, rewrite((JAVA / relative).read_text()))
 
-for relative in ['client/RootWormModel.java', 'entity/RootWormHearing.java', 'entity/InvestigateSoundGoal.java', 'entity/RootWormAttackGoal.java']:
+for relative in ['client/RootWormModel.java', 'entity/RootWormHearing.java', 'entity/InvestigateSoundGoal.java',
+                 'entity/RootWormAttackGoal.java', 'entity/RootWormSearchPose.java']:
     write('src/main/java/' + PACKAGE.replace('.', '/') + '/' + relative, (REPO / 'tools/rootworm_export' / relative).read_text())
 
 worm = rewrite((JAVA / 'entity/RootWorm.java').read_text())
@@ -83,6 +84,27 @@ worm = worm.replace('    private float mouthOpen, previousMouthOpen;', '''    pr
     private Vec3 heardPosition;
     private int heardAt = -100000;''')
 worm = worm.replace('        this.xpReward = 2;', '        this.xpReward = 2;\n        hearing = new net.minecraft.world.level.gameevent.DynamicGameEventListener<>(new RootWormHearing(this));')
+worm = worm.replace('    private static final int BITE_DURATION = 9;', '''    private static final int BITE_DURATION = 9;
+    private static final EntityDataAccessor<Boolean> SEARCHING = SynchedEntityData.defineId(RootWorm.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> SEARCH_BLEND_START = SynchedEntityData.defineId(RootWorm.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Long> SEARCH_CHANGED_AT = SynchedEntityData.defineId(RootWorm.class, EntityDataSerializers.LONG);
+    private static final EntityDataAccessor<Long> SEARCH_STARTED_AT = SynchedEntityData.defineId(RootWorm.class, EntityDataSerializers.LONG);''')
+worm = worm.replace('        builder.define(BITE_TICKS, 0);', '''        builder.define(BITE_TICKS, 0);
+        builder.define(SEARCHING, false);
+        builder.define(SEARCH_BLEND_START, 0.0F);
+        builder.define(SEARCH_CHANGED_AT, 0L);
+        builder.define(SEARCH_STARTED_AT, 0L);''')
+worm = worm.replace('            int biteTicks = entityData.get(BITE_TICKS);', '''            if (isSearching() && !canSearchHere()) setSearching(false);
+            int biteTicks = entityData.get(BITE_TICKS);''')
+worm = worm.replace('boolean feeding = getTarget() == null', 'boolean feeding = !isSearching() && getSearchAmount(0) == 0 && getTarget() == null')
+a = worm.index('            float forward = RootWormShape.hitForward(i) * scale;')
+b = worm.index('            // Direct teleports', a)
+worm = worm[:a] + '''            var pose = getSearchPose(i, 0);
+            part.refreshDimensions();
+            Vec3 position = searchPartPosition(i, pose);
+            part.setPos(position.x, position.y, position.z);
+''' + worm[b:]
+worm = worm.replace('        float yaw = yBodyRot * Mth.DEG_TO_RAD;\n        float scale = getScale();\n', '')
 worm = worm.replace('        return super.hurt(source, damage);', '''        boolean accepted = super.hurt(source, damage);
         if (accepted && source.getEntity() instanceof LivingEntity attacker) hearSound(attacker, attacker.position(), 1.0);
         return accepted;''')
@@ -103,7 +125,7 @@ worm = worm[:pos] + '''    @Override public void updateDynamicGameEventListener(
     public boolean hasRecentSound() { return heardPosition != null && tickCount - heardAt <= RootWormConfig.SOUND_MEMORY_TICKS.get(); }
     public boolean hasRecentSoundFrom(LivingEntity actor) { return hasRecentSound() && actor.getUUID().equals(heardActor); }
     public Vec3 lastHeardPosition() { return heardPosition; }
-    public void beginBite() { entityData.set(BITE_TICKS, BITE_DURATION); }
+    public void beginBite() { setSearching(false); entityData.set(BITE_TICKS, BITE_DURATION); }
     public boolean sensesCloseTarget(LivingEntity actor) {
         for (var part : bodyParts) if (part.getBoundingBox().inflate(0.35, 0.35, 0.35).intersects(actor.getBoundingBox())) return true;
         return false;
@@ -131,6 +153,66 @@ worm = worm[:pos] + '''    @Override public void updateDynamicGameEventListener(
                 .getType() == net.minecraft.world.phys.HitResult.Type.MISS;
     }
 
+    public boolean isSearching() { return entityData.get(SEARCHING); }
+
+    @Override public net.minecraft.world.phys.AABB getBoundingBoxForCulling() {
+        var bounds = super.getBoundingBoxForCulling();
+        if (bodyParts != null) for (var part : bodyParts) bounds = bounds.minmax(part.getBoundingBox());
+        return bounds;
+    }
+
+    /** Transition-only synced data and world time keep late-tracking clients on the same pose as the server. */
+    private float searchLinearAmount(float partialTick) {
+        float elapsed = Math.max(0, level().getGameTime() - entityData.get(SEARCH_CHANGED_AT) + partialTick);
+        return Mth.clamp(entityData.get(SEARCH_BLEND_START) + (isSearching() ? elapsed : -elapsed) / 10.0F, 0, 1);
+    }
+    public float getSearchAmount(float partialTick) {
+        float amount = searchLinearAmount(partialTick);
+        return amount * amount * (3 - 2 * amount);
+    }
+    public RootWormSearchPose.Pose getSearchPose(int segment, float partialTick) {
+        float age = level().getGameTime() - entityData.get(SEARCH_STARTED_AT) + partialTick;
+        return RootWormSearchPose.sample(segment, getSearchAmount(partialTick), age);
+    }
+    public void setSearching(boolean searching) {
+        if (level().isClientSide || searching == isSearching() || searching && !canSearchHere()) return;
+        float amount = searchLinearAmount(0);
+        entityData.set(SEARCH_BLEND_START, amount);
+        entityData.set(SEARCH_CHANGED_AT, level().getGameTime());
+        if (searching) entityData.set(SEARCH_STARTED_AT, level().getGameTime());
+        entityData.set(SEARCHING, searching);
+    }
+    private Vec3 searchPartPosition(int segment, RootWormSearchPose.Pose pose) {
+        float yaw = yBodyRot * Mth.DEG_TO_RAD, scale = getScale();
+        float nose = segment == 0 ? 1.5F : 0;
+        float side = (pose.x() - Mth.sin(pose.yaw()) * nose) / 16 * scale;
+        float forward = (-pose.z() + Mth.cos(pose.yaw()) * nose) / 16 * scale;
+        return new Vec3(getX() - Mth.sin(yaw) * forward - Mth.cos(yaw) * side,
+                getY() + RootWormSearchPose.bottom(segment, pose) * scale,
+                getZ() + Mth.cos(yaw) * forward - Mth.sin(yaw) * side);
+    }
+    public boolean canSearchHere() {
+        if (!onGround() || isNoAi() || !isAlive() || isOnFire() || isInWaterOrBubble() || isInLava()
+                || isBiting() || !getNavigation().isDone()) return false;
+        // Check the complete lifting envelope, including side-to-side sweep; never raise through a ceiling.
+        float scale = getScale();
+        for (int i = 0; i < bodyParts.length; i++) {
+            net.minecraft.world.phys.AABB envelope = null;
+            for (float amount : new float[]{0, 1}) {
+                var pose = RootWormSearchPose.sample(i, amount, 0);
+                Vec3 position = searchPartPosition(i, pose);
+                double width = RootWormSearchPose.width(i, pose) * scale;
+                var box = new net.minecraft.world.phys.AABB(position.x - width / 2, position.y, position.z - width / 2,
+                        position.x + width / 2, position.y + RootWormSearchPose.height(i, pose) * scale, position.z + width / 2);
+                envelope = envelope == null ? box : envelope.minmax(box);
+            }
+            envelope = new net.minecraft.world.phys.AABB(envelope.minX, Math.max(getY() + 0.03 * scale, envelope.minY), envelope.minZ,
+                    envelope.maxX, envelope.maxY, envelope.maxZ).inflate(0.35 * scale, 0, 0.35 * scale);
+            if (!level().noCollision(this, envelope)) return false;
+        }
+        return true;
+    }
+
 ''' + worm[pos:]
 for unused in ['net.minecraft.core.registries.BuiltInRegistries', 'net.minecraft.core.registries.Registries',
                'net.minecraft.resources.ResourceLocation', 'net.minecraft.tags.TagKey',
@@ -140,6 +222,13 @@ for unused in ['net.minecraft.core.registries.BuiltInRegistries', 'net.minecraft
     worm = worm.replace('import ' + unused + ';\n', '')
 worm = worm.replace('A neutral, root-seeking creature.', 'A neutral creature with no biome or custom-block requirements.')
 write('src/main/java/' + PACKAGE.replace('.', '/') + '/entity/RootWorm.java', worm)
+part = rewrite((JAVA / 'entity/RootWormPart.java').read_text())
+part = part.replace('    private final EntityDimensions size;', '    private final int segment;')
+part = part.replace('        size = EntityDimensions.scalable(RootWormShape.hitWidth(segment), RootWormShape.hitHeight(segment));',
+                    '        this.segment = segment;')
+part = part.replace('return size.scale(getParent().getScale());', '''var search = getParent().getSearchPose(segment, 0);
+        return EntityDimensions.scalable(RootWormSearchPose.width(segment, search), RootWormSearchPose.height(segment, search)).scale(getParent().getScale());''')
+write('src/main/java/' + PACKAGE.replace('.', '/') + '/entity/RootWormPart.java', part)
 
 write('src/main/java/' + PACKAGE.replace('.', '/') + '/RootWormConfig.java', '''
 package dev.fantasyfeudalism.rootworm;
@@ -383,6 +472,8 @@ public final class RootWormBehaviorGameTests {
 ''')
 write('example-host/src/gametest/java/' + PACKAGE.replace('.', '/') + '/gametest/RootWormHearingGameTests.java',
       (REPO / 'tools/rootworm_export/gametest/RootWormHearingGameTests.java').read_text())
+write('example-host/src/gametest/java/' + PACKAGE.replace('.', '/') + '/gametest/RootWormSearchGameTests.java',
+      (REPO / 'tools/rootworm_export/gametest/RootWormSearchGameTests.java').read_text())
 arena = KIT / 'example-host/src/gametest/resources/data/rootworm/structure/test_arena.nbt'
 arena.parent.mkdir(parents=True, exist_ok=True)
 shutil.copyfile(RES / 'data/fantasy_feudalism_biomes/structure/test_arena.nbt', arena)
@@ -439,6 +530,7 @@ Source export from Fantasy Feudalism - Biomes 0.6.1 for **Minecraft 1.21.1, NeoF
 
 - The original 128x64 Root Worm PNG with a customized Java model: green back meshes removed, identical mirrored eyes with true-black pupils, the original blink, renderer and shared nine-segment geometry.
 - Procedural Java animations: slithering, idle movement/blinking, cosmetic idle nibbling, and an attack-only opening mouth with a faster 9-tick animation and 3-tick windup, synchronized from the server (the 20-tick attack cooldown is unchanged).
+- A raised searching animation inspired by an inchworm: the front and middle arch upward while the rear three segments stay planted, and the head slowly scans side to side with its mouth closed. It eases up/down over 10 ticks, pauses to listen for 52 ticks after hearing a sound, and searches again upon reaching the remembered location. Combat, heat, water and movement interrupt the pose; low ceilings prevent raising. The model and multipart hitboxes share the search curve and synchronized world-time transitions, including for clients that start tracking mid-animation.
 - Neutral, hearing-guided AI: investigate eating, footsteps/running, jumping/landing, damage, block breaking/placing, armor equipping and held-item changes. Running/loud actions reach 16 blocks by default; normal footsteps reach half that and sneaking footsteps are ignored. Remembered sound locations expire after 80 ticks. Hearing alone does not cause aggression. Retaliatory bites use the head reach and a short lunge so slowly retreating targets can be bitten. Solid blocks still stop bites. Configurable fire/lava weakness, vanilla fire/lava avoidance and panic while burning are retained.
 - Nine multipart damage boxes, correct part IDs and lifecycle, normal melee handling, arrow/potion/fire forwarding, scaling, teleports and name tags.
 - Entity/attribute/spawn-egg registration, spawn placement registration, independent behavior config, client registration, translations and the original empty loot table.
@@ -496,7 +588,7 @@ No Rootlands biome, worldgen, surface rules, custom blocks, root-food tags, heat
 
 - Texture: `src/main/resources/assets/rootworm/textures/entity/root_worm.png` (128x64 RGBA).
 - Model/animations: `src/main/java/dev/fantasyfeudalism/rootworm/client/RootWormModel.java`.
-- Renderer: `client/RootWormRenderer.java`; shared model/hitbox sizes: `entity/RootWormShape.java`.
+- Renderer: `client/RootWormRenderer.java`; shared model/hitbox sizes: `entity/RootWormShape.java`; raised search curve: `entity/RootWormSearchPose.java`.
 - Behavior/attacks: `entity/RootWorm.java`, `entity/RootWormAttackGoal.java`; hearing/investigation: `entity/RootWormHearing.java`, `entity/InvestigateSoundGoal.java`; heat avoidance: `entity/AvoidHeatGoal.java`.
 - Multipart damage: `entity/RootWormPart.java`; arrow forwarding: `mixin/RootWormArrowMixin.java`.
 - Registration/config: `RootWormModule.java`, `RootWormConfig.java`; client registration: `client/RootWormClient.java`.
@@ -524,7 +616,7 @@ manifest = {
     'minecraft': '1.21.1', 'neoforge': '21.1.262', 'java': 21,
     'namespace': NS, 'java_package': PACKAGE,
     'habitat_dependencies': [],
-    'export_customizations': ['no green back meshes', 'identical mirrored eyes with true-black pupils and retained blink', '9-tick bite / 3-tick windup / unchanged 20-tick cooldown', 'vanilla game-event hearing and hearing-guided pursuit with short bite lunge'],
+    'export_customizations': ['no green back meshes', 'identical mirrored eyes with true-black pupils and retained blink', '9-tick bite / 3-tick windup / unchanged 20-tick cooldown', 'vanilla game-event hearing and hearing-guided pursuit with short bite lunge', 'synchronized raised searching with a grounded tail, side-to-side scan and matching multipart hitboxes'],
     'removed': ['Rootlands biome/worldgen', 'custom blocks and block lists', 'root-food and heat-source tags', 'root-seeking AI', 'custom habitat spawn checks', 'Lithostitched dependency'],
     'files': {str(p.relative_to(KIT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(KIT.rglob('*')) if p.is_file()}
 }
